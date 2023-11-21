@@ -246,6 +246,10 @@ func ValidateTransactionWithState(tx *types.Transaction, signer types.Signer, op
 	)
 	if opts.L1CostFn != nil {
 		if l1Cost := opts.L1CostFn(tx.RollupDataGas()); l1Cost != nil { // add rollup cost
+			if l1Cost.Cmp(common.Big0) == 0 {
+				// If L1 fee is zero, it's okay even without a balance.
+				return nil
+			}
 			cost = cost.Add(cost, l1Cost)
 		}
 	}

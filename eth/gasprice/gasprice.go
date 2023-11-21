@@ -167,6 +167,9 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 	head, _ := oracle.backend.HeaderByNumber(ctx, rpc.LatestBlockNumber)
 	headHash := head.Hash()
+	if oracle.backend.ChainConfig().IsZeroFee(head.Number) {
+		return big.NewInt(0), nil
+	}
 
 	// If the latest gasprice is still available, return it.
 	oracle.cacheLock.RLock()

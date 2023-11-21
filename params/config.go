@@ -359,6 +359,10 @@ type ChainConfig struct {
 	RegolithTime *uint64  `json:"regolithTime,omitempty"` // Regolith switch time (nil = no fork, 0 = already on optimism regolith)
 	CanyonTime   *uint64  `json:"canyonTime,omitempty"`   // Canyon switch time (nil = no fork, 0 = already on optimism canyon)
 
+	// Toggle for enabling/disabling zero transaction fee
+	ZeroFeeEnabledBlocks []*big.Int `json:"zeroFeeEnabledBlocks,omitempty"`
+	ZeroFeeDisableBlocks []*big.Int `json:"zeroFeeDisableBlocks,omitempty"`
+
 	// TerminalTotalDifficulty is the amount of total difficulty reached by
 	// the network that triggers the consensus upgrade.
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
@@ -467,6 +471,12 @@ func (c *ChainConfig) Description() string {
 	}
 	if c.GrayGlacierBlock != nil {
 		banner += fmt.Sprintf(" - Gray Glacier:                #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/gray-glacier.md)\n", c.GrayGlacierBlock)
+	}
+	if len(c.ZeroFeeEnabledBlocks) > 0 {
+		banner += fmt.Sprintf(" - Zero Fee Enabled Blocks:     %v\n", c.ZeroFeeEnabledBlocks)
+	}
+	if len(c.ZeroFeeDisableBlocks) > 0 {
+		banner += fmt.Sprintf(" - Zero Fee Disabled Blocks:    %v\n", c.ZeroFeeDisableBlocks)
 	}
 	banner += "\n"
 
@@ -613,6 +623,17 @@ func (c *ChainConfig) IsBedrock(num *big.Int) bool {
 	return isBlockForked(c.BedrockBlock, num)
 }
 
+func (c *ChainConfig) IsZeroFee(num *big.Int) bool {
+	for i := len(c.ZeroFeeEnabledBlocks) - 1; i >= 0; i-- {
+		if isBlockForked(c.ZeroFeeEnabledBlocks[i], num) {
+			return true
+		}
+		// TODO: Check for c.ZeroFeeDisableBlocks
+	}
+
+	return false
+}
+
 func (c *ChainConfig) IsRegolith(time uint64) bool {
 	return isTimestampForked(c.RegolithTime, time)
 }
@@ -733,6 +754,35 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 			lastFork = cur
 		}
 	}
+
+	if len(c.ZeroFeeDisableBlocks) > len(c.ZeroFeeEnabledBlocks) {
+		return fmt.Errorf("zeroFeeDisableBlocks(len=%d) is more than enableZeroBaseFeeBlocks(len=%d)",
+			len(c.ZeroFeeDisableBlocks), len(c.ZeroFeeEnabledBlocks))
+	}
+	for i, curEn := range c.ZeroFeeEnabledBlocks {
+		if curEn == nil {
+			return fmt.Errorf("enableZeroBaseFeeBlocks contains null")
+		}
+		if i > 0 {
+			prevEn := c.ZeroFeeEnabledBlocks[i-1]
+			if prevEn.Cmp(curEn) != -1 {
+				return fmt.Errorf("enableZeroBaseFeeBlocks[%d]=#%s is overtaking enableZeroBaseFeeBlocks[%d]=#%s", i, curEn, i-1, prevEn)
+			}
+		}
+
+		if i == len(c.ZeroFeeDisableBlocks) {
+			break
+		}
+
+		dis := c.ZeroFeeDisableBlocks[i]
+		if dis == nil {
+			return fmt.Errorf("zeroFeeDisableBlocks contains null")
+		}
+		if dis.Cmp(curEn) != 1 {
+			return fmt.Errorf("enableZeroBaseFeeBlocks[%d]=#%d is overtaking zeroFeeDisableBlocks[%d]=#%d", i, curEn, i, dis)
+		}
+	}
+
 	return nil
 }
 
