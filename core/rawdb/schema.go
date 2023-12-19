@@ -40,6 +40,9 @@ var (
 	// headFastBlockKey tracks the latest known incomplete block's hash during fast sync.
 	headFastBlockKey = []byte("LastFast")
 
+	// headSafeBlockKey tracks the latest known safe block hash.
+	headSafeBlockKey = []byte("LastSafe")
+
 	// headFinalizedBlockKey tracks the latest known finalized block hash.
 	headFinalizedBlockKey = []byte("LastFinalized")
 

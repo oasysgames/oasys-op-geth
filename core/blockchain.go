@@ -532,15 +532,23 @@ func (bc *BlockChain) loadLastState() error {
 		}
 	}
 
-	// Restore the last known finalized block and safe block
-	// Note: the safe block is not stored on disk and it is set to the last
-	// known finalized block on startup
+	// Restore the last known safe block
+	// NOTE: The original geth code doesn't store the safe block on disk, but we do
+	if head := rawdb.ReadSafeBlockHash(bc.db); head != (common.Hash{}) {
+		if block := bc.GetBlockByHash(head); block != nil {
+			bc.currentSafeBlock.Store(block.Header())
+			headSafeBlockGauge.Update(int64(block.NumberU64()))
+		}
+	}
+
+	// Restore the last known finalized block
 	if head := rawdb.ReadFinalizedBlockHash(bc.db); head != (common.Hash{}) {
 		if block := bc.GetBlockByHash(head); block != nil {
 			bc.currentFinalBlock.Store(block.Header())
 			headFinalizedBlockGauge.Update(int64(block.NumberU64()))
-			bc.currentSafeBlock.Store(block.Header())
-			headSafeBlockGauge.Update(int64(block.NumberU64()))
+			// NOTE: comment out the following line, since we store the safe block on disk
+			// bc.currentSafeBlock.Store(block.Header())
+			// headSafeBlockGauge.Update(int64(block.NumberU64()))
 		}
 	}
 	// Issue a status log for the user
@@ -628,8 +636,10 @@ func (bc *BlockChain) SetFinalized(header *types.Header) {
 func (bc *BlockChain) SetSafe(header *types.Header) {
 	bc.currentSafeBlock.Store(header)
 	if header != nil {
+		rawdb.WriteSafeBlockHash(bc.db, header.Hash())
 		headSafeBlockGauge.Update(int64(header.Number.Uint64()))
 	} else {
+		rawdb.WriteSafeBlockHash(bc.db, common.Hash{})
 		headSafeBlockGauge.Update(0)
 	}
 }
