@@ -167,6 +167,8 @@ func NewOracle(backend OracleBackend, params Config) *Oracle {
 func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 	head, _ := oracle.backend.HeaderByNumber(ctx, rpc.LatestBlockNumber)
 	headHash := head.Hash()
+
+	// If the zero fee mode is enabled, return 0.
 	if oracle.backend.ChainConfig().IsZeroFee(head.Number) {
 		return big.NewInt(0), nil
 	}

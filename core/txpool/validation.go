@@ -214,6 +214,9 @@ type ValidationOptionsWithState struct {
 
 	// L1CostFn is an optional extension, to validate L1 rollup costs of a tx
 	L1CostFn L1CostFunc
+
+	// Flag to indicate that the L2 fee is zero
+	IsFeeZero bool
 }
 
 // ValidateTransactionWithState is a helper method to check whether a transaction
@@ -239,6 +242,10 @@ func ValidateTransactionWithState(tx *types.Transaction, signer types.Signer, op
 			return fmt.Errorf("%w: tx nonce %v, gapped nonce %v", core.ErrNonceTooHigh, tx.Nonce(), gap)
 		}
 	}
+	// Skip balance validation if zero fee
+	if opts.IsFeeZero {
+		return nil
+	}
 	// Ensure the transactor has enough funds to cover the transaction costs
 	var (
 		balance = opts.State.GetBalance(from)
@@ -246,10 +253,6 @@ func ValidateTransactionWithState(tx *types.Transaction, signer types.Signer, op
 	)
 	if opts.L1CostFn != nil {
 		if l1Cost := opts.L1CostFn(tx.RollupDataGas()); l1Cost != nil { // add rollup cost
-			if l1Cost.Cmp(common.Big0) == 0 {
-				// If L1 fee is zero, it's okay even without a balance.
-				return nil
-			}
 			cost = cost.Add(cost, l1Cost)
 		}
 	}

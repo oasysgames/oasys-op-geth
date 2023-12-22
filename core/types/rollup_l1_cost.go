@@ -60,13 +60,13 @@ func NewL1CostFunc(config *params.ChainConfig, statedb StateGetter) L1CostFunc {
 	cacheBlockNum := ^uint64(0)
 	var l1BaseFee, overhead, scalar *big.Int
 	return func(blockNum uint64, blockTime uint64, dataGas RollupGasData, isDepositTx bool) *big.Int {
-		if config.IsZeroFee(new(big.Int).SetUint64(blockNum)) {
-			// `nil` means that there is no cost, so it explicitly returns zero.
-			return big.NewInt(0)
-		}
 		rollupDataGas := dataGas.DataGas(blockTime, config) // Only fake txs for RPC view-calls are 0.
 		if config.Optimism == nil || isDepositTx || rollupDataGas == 0 {
 			return nil
+		}
+		if config.IsZeroFee(new(big.Int).SetUint64(blockNum)) {
+			// `nil` means that there is no cost, so it explicitly returns zero.
+			return big.NewInt(0)
 		}
 		if blockNum != cacheBlockNum {
 			l1BaseFee = statedb.GetState(L1BlockAddr, L1BaseFeeSlot).Big()
