@@ -169,7 +169,7 @@ func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 	headHash := head.Hash()
 
 	// If the zero fee mode is enabled, return 0.
-	if oracle.backend.ChainConfig().IsZeroFee(head.Number) {
+	if oracle.backend.ChainConfig().IsFeeZero(head.Time) {
 		return big.NewInt(0), nil
 	}
 

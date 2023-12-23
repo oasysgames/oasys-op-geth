@@ -583,7 +583,7 @@ func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, nu
 					rs[i].L1GasPrice = l1Basefee
 					// GasUsed reported in receipt should include the overhead
 					rs[i].L1GasUsed = new(big.Int).Add(new(big.Int).SetUint64(gas), overhead)
-					if config.IsZeroFee(rs[i].BlockNumber) {
+					if config.IsFeeZero(time) {
 						rs[i].L1Fee = big.NewInt(0)
 					} else {
 						rs[i].L1Fee = L1Cost(gas, l1Basefee, overhead, scalar)

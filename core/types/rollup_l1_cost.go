@@ -64,7 +64,7 @@ func NewL1CostFunc(config *params.ChainConfig, statedb StateGetter) L1CostFunc {
 		if config.Optimism == nil || isDepositTx || rollupDataGas == 0 {
 			return nil
 		}
-		if config.IsZeroFee(new(big.Int).SetUint64(blockNum)) {
+		if config.IsFeeZero(blockTime) {
 			// `nil` means that there is no cost, so it explicitly returns zero.
 			return big.NewInt(0)
 		}

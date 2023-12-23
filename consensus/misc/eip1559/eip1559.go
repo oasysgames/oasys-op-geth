@@ -59,7 +59,7 @@ func VerifyEIP1559Header(config *params.ChainConfig, parent, header *types.Heade
 // The time belongs to the new block to check if Canyon is activted or not
 func CalcBaseFee(config *params.ChainConfig, parent *types.Header, time uint64) *big.Int {
 	// Always return zero baseFee if zero fee is enabled.
-	if config.IsZeroFee(new(big.Int).Add(parent.Number, common.Big1)) {
+	if config.IsFeeZero(time) {
 		return big.NewInt(0)
 	}
 

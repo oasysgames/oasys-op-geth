@@ -252,7 +252,7 @@ func gatherForks(config *params.ChainConfig, genesis uint64) ([]uint64, []uint64
 		// Fetch the next field and skip non-fork rules
 		field := kind.Field(i)
 
-		time := strings.HasSuffix(field.Name, "Time")
+		time := strings.HasSuffix(field.Name, "Time") || strings.HasSuffix(field.Name, "Times")
 		if !time && !strings.HasSuffix(field.Name, "Block") {
 			continue
 		}
@@ -261,6 +261,11 @@ func gatherForks(config *params.ChainConfig, genesis uint64) ([]uint64, []uint64
 		if field.Type == reflect.TypeOf(&x) {
 			if rule := conf.Field(i).Interface().(*uint64); rule != nil {
 				forksByTime = append(forksByTime, *rule)
+			}
+		}
+		if field.Type == reflect.TypeOf([]uint64{}) {
+			if rule := conf.Field(i).Interface().([]uint64); rule != nil {
+				forksByTime = append(forksByTime, rule...)
 			}
 		}
 		if field.Type == reflect.TypeOf(new(big.Int)) {
