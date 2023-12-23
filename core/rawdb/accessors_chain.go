@@ -217,7 +217,7 @@ func WriteHeadFastBlockHash(db ethdb.KeyValueWriter, hash common.Hash) {
 	}
 }
 
-// ReadSafeBlockHash retrieves the hash of the finalized block.
+// ReadSafeBlockHash retrieves the hash of the safe block.
 func ReadSafeBlockHash(db ethdb.KeyValueReader) common.Hash {
 	data, _ := db.Get(headSafeBlockKey)
 	if len(data) == 0 {
@@ -226,10 +226,10 @@ func ReadSafeBlockHash(db ethdb.KeyValueReader) common.Hash {
 	return common.BytesToHash(data)
 }
 
-// WriteSafeBlockHash stores the hash of the finalized block.
+// WriteSafeBlockHash stores the hash of the safe block.
 func WriteSafeBlockHash(db ethdb.KeyValueWriter, hash common.Hash) {
 	if err := db.Put(headSafeBlockKey, hash.Bytes()); err != nil {
-		log.Crit("Failed to store last finalized block's hash", "err", err)
+		log.Crit("Failed to store last safe block's hash", "err", err)
 	}
 }
 
