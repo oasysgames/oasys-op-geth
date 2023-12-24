@@ -554,6 +554,7 @@ func (bc *BlockChain) loadLastState() error {
 	// Issue a status log for the user
 	var (
 		currentSnapBlock  = bc.CurrentSnapBlock()
+		currentSafeBlock  = bc.CurrentSafeBlock()
 		currentFinalBlock = bc.CurrentFinalBlock()
 
 		headerTd = bc.GetTd(headHeader.Hash(), headHeader.Number.Uint64())
@@ -566,6 +567,10 @@ func (bc *BlockChain) loadLastState() error {
 	if headBlock.Hash() != currentSnapBlock.Hash() {
 		snapTd := bc.GetTd(currentSnapBlock.Hash(), currentSnapBlock.Number.Uint64())
 		log.Info("Loaded most recent local snap block", "number", currentSnapBlock.Number, "hash", currentSnapBlock.Hash(), "td", snapTd, "age", common.PrettyAge(time.Unix(int64(currentSnapBlock.Time), 0)))
+	}
+	if currentSafeBlock != nil {
+		safeTd := bc.GetTd(currentSafeBlock.Hash(), currentSafeBlock.Number.Uint64())
+		log.Info("Loaded most recent local safe block", "number", currentSafeBlock.Number, "hash", currentSafeBlock.Hash(), "td", safeTd, "age", common.PrettyAge(time.Unix(int64(currentSafeBlock.Time), 0)))
 	}
 	if currentFinalBlock != nil {
 		finalTd := bc.GetTd(currentFinalBlock.Hash(), currentFinalBlock.Number.Uint64())
