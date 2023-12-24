@@ -532,20 +532,29 @@ func (bc *BlockChain) loadLastState() error {
 		}
 	}
 
-	// Restore the last known finalized block and safe block
-	// Note: the safe block is not stored on disk and it is set to the last
-	// known finalized block on startup
+	// Restore the last known safe block
+	// NOTE: The original geth code doesn't store the safe block on disk, but we do
+	if head := rawdb.ReadSafeBlockHash(bc.db); head != (common.Hash{}) {
+		if block := bc.GetBlockByHash(head); block != nil {
+			bc.currentSafeBlock.Store(block.Header())
+			headSafeBlockGauge.Update(int64(block.NumberU64()))
+		}
+	}
+
+	// Restore the last known finalized block
 	if head := rawdb.ReadFinalizedBlockHash(bc.db); head != (common.Hash{}) {
 		if block := bc.GetBlockByHash(head); block != nil {
 			bc.currentFinalBlock.Store(block.Header())
 			headFinalizedBlockGauge.Update(int64(block.NumberU64()))
-			bc.currentSafeBlock.Store(block.Header())
-			headSafeBlockGauge.Update(int64(block.NumberU64()))
+			// NOTE: comment out the following line, since we store the safe block on disk
+			// bc.currentSafeBlock.Store(block.Header())
+			// headSafeBlockGauge.Update(int64(block.NumberU64()))
 		}
 	}
 	// Issue a status log for the user
 	var (
 		currentSnapBlock  = bc.CurrentSnapBlock()
+		currentSafeBlock  = bc.CurrentSafeBlock()
 		currentFinalBlock = bc.CurrentFinalBlock()
 
 		headerTd = bc.GetTd(headHeader.Hash(), headHeader.Number.Uint64())
@@ -558,6 +567,10 @@ func (bc *BlockChain) loadLastState() error {
 	if headBlock.Hash() != currentSnapBlock.Hash() {
 		snapTd := bc.GetTd(currentSnapBlock.Hash(), currentSnapBlock.Number.Uint64())
 		log.Info("Loaded most recent local snap block", "number", currentSnapBlock.Number, "hash", currentSnapBlock.Hash(), "td", snapTd, "age", common.PrettyAge(time.Unix(int64(currentSnapBlock.Time), 0)))
+	}
+	if currentSafeBlock != nil {
+		safeTd := bc.GetTd(currentSafeBlock.Hash(), currentSafeBlock.Number.Uint64())
+		log.Info("Loaded most recent local safe block", "number", currentSafeBlock.Number, "hash", currentSafeBlock.Hash(), "td", safeTd, "age", common.PrettyAge(time.Unix(int64(currentSafeBlock.Time), 0)))
 	}
 	if currentFinalBlock != nil {
 		finalTd := bc.GetTd(currentFinalBlock.Hash(), currentFinalBlock.Number.Uint64())
@@ -628,8 +641,10 @@ func (bc *BlockChain) SetFinalized(header *types.Header) {
 func (bc *BlockChain) SetSafe(header *types.Header) {
 	bc.currentSafeBlock.Store(header)
 	if header != nil {
+		rawdb.WriteSafeBlockHash(bc.db, header.Hash())
 		headSafeBlockGauge.Update(int64(header.Number.Uint64()))
 	} else {
+		rawdb.WriteSafeBlockHash(bc.db, common.Hash{})
 		headSafeBlockGauge.Update(0)
 	}
 }
