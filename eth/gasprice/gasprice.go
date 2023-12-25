@@ -168,6 +168,11 @@ func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 	head, _ := oracle.backend.HeaderByNumber(ctx, rpc.LatestBlockNumber)
 	headHash := head.Hash()
 
+	// If the zero fee mode is enabled, return 0.
+	if oracle.backend.ChainConfig().IsFeeZero(head.Time) {
+		return big.NewInt(0), nil
+	}
+
 	// If the latest gasprice is still available, return it.
 	oracle.cacheLock.RLock()
 	lastHead, lastPrice := oracle.lastHead, oracle.lastPrice

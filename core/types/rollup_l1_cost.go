@@ -64,6 +64,10 @@ func NewL1CostFunc(config *params.ChainConfig, statedb StateGetter) L1CostFunc {
 		if config.Optimism == nil || isDepositTx || rollupDataGas == 0 {
 			return nil
 		}
+		if config.IsFeeZero(blockTime) {
+			// `nil` means that there is no cost, so it explicitly returns zero.
+			return big.NewInt(0)
+		}
 		if blockNum != cacheBlockNum {
 			l1BaseFee = statedb.GetState(L1BlockAddr, L1BaseFeeSlot).Big()
 			overhead = statedb.GetState(L1BlockAddr, OverheadSlot).Big()

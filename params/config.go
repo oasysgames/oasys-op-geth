@@ -17,8 +17,10 @@
 package params
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -362,6 +364,11 @@ type ChainConfig struct {
 
 	InteropTime *uint64 `json:"interopTime,omitempty"` // Interop switch time (nil = no fork, 0 = already on optimism interop)
 
+	// Toggle for enabling/disabling zero transaction fee
+	// From the timestamps set at even indices, transaction fees becomes zero.
+	// From the timestamps set at odd indices, transaction fees becomes required.
+	ZeroFeeTimes []uint64 `json:"zeroFeeTimes,omitempty"`
+
 	// TerminalTotalDifficulty is the amount of total difficulty reached by
 	// the network that triggers the consensus upgrade.
 	TerminalTotalDifficulty *big.Int `json:"terminalTotalDifficulty,omitempty"`
@@ -470,6 +477,17 @@ func (c *ChainConfig) Description() string {
 	}
 	if c.GrayGlacierBlock != nil {
 		banner += fmt.Sprintf(" - Gray Glacier:                #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/gray-glacier.md)\n", c.GrayGlacierBlock)
+	}
+	if len(c.ZeroFeeTimes) > 0 {
+		banner += "\nZero Fee Times:\n"
+
+		for i, val := range c.ZeroFeeTimes {
+			mode := "Enabled "
+			if i%2 != 0 {
+				mode = "Disabled"
+			}
+			banner += fmt.Sprintf(" - %d: %s                  @%d (%s)\n", i, mode, val, time.Unix(int64(val), 0))
+		}
 	}
 	banner += "\n"
 
@@ -653,9 +671,18 @@ func (c *ChainConfig) IsOptimismPreBedrock(num *big.Int) bool {
 	return c.IsOptimism() && !c.IsBedrock(num)
 }
 
+func (c *ChainConfig) IsFeeZero(time uint64) bool {
+	for i := len(c.ZeroFeeTimes) - 1; i >= 0; i-- {
+		if isTimestampForked(&c.ZeroFeeTimes[i], time) {
+			return i%2 == 0
+		}
+	}
+	return false
+}
+
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
-func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64, time uint64) *ConfigCompatError {
+func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64, time uint64) error {
 	var (
 		bhead = new(big.Int).SetUint64(height)
 		btime = time
@@ -664,16 +691,28 @@ func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64, time u
 	var lasterr *ConfigCompatError
 	for {
 		err := c.checkCompatible(newcfg, bhead, btime)
-		if err == nil || (lasterr != nil && err.RewindToBlock == lasterr.RewindToBlock && err.RewindToTime == lasterr.RewindToTime) {
+		if err == nil {
 			break
 		}
-		lasterr = err
 
-		if err.RewindToTime > 0 {
-			btime = err.RewindToTime
-		} else {
-			bhead.SetUint64(err.RewindToBlock)
+		curerr, ok := err.(*ConfigCompatError)
+		if !ok {
+			return err
 		}
+		if lasterr != nil && curerr.RewindToBlock == lasterr.RewindToBlock && curerr.RewindToTime == lasterr.RewindToTime {
+			break
+		}
+		lasterr = curerr
+
+		if curerr.RewindToTime > 0 {
+			btime = curerr.RewindToTime
+		} else {
+			bhead.SetUint64(curerr.RewindToBlock)
+		}
+	}
+	if lasterr == nil {
+		// Returning nil explicitly to prevent error handling mistakes by the caller.
+		return nil
 	}
 	return lasterr
 }
@@ -743,10 +782,18 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 			lastFork = cur
 		}
 	}
+
+	for i, cur := range c.ZeroFeeTimes {
+		if i > 0 {
+			if prev := c.ZeroFeeTimes[i-1]; cur <= prev {
+				return fmt.Errorf("zeroFeeTimes[%d]=@%d is earlier than zeroFeeTimes[%d]=@%d", i, cur, i-1, prev)
+			}
+		}
+	}
 	return nil
 }
 
-func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, headTimestamp uint64) *ConfigCompatError {
+func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, headTimestamp uint64) error {
 	if isForkBlockIncompatible(c.HomesteadBlock, newcfg.HomesteadBlock, headNumber) {
 		return newBlockCompatError("Homestead fork block", c.HomesteadBlock, newcfg.HomesteadBlock)
 	}
@@ -813,6 +860,15 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, 
 	}
 	if isForkTimestampIncompatible(c.VerkleTime, newcfg.VerkleTime, headTimestamp) {
 		return newTimestampCompatError("Verkle fork timestamp", c.VerkleTime, newcfg.VerkleTime)
+	}
+	if len(newcfg.ZeroFeeTimes) < len(c.ZeroFeeTimes) {
+		return errors.New("zeroFeeTimes: length of new config is shorter than stored config")
+	}
+	for i, stored := range c.ZeroFeeTimes {
+		new := newcfg.ZeroFeeTimes[i]
+		if isForkTimestampIncompatible(&stored, &new, headTimestamp) {
+			return newTimestampCompatError(fmt.Sprintf("zeroFeeTimes[%d] fork timestamp", i), &stored, &new)
+		}
 	}
 	return nil
 }
