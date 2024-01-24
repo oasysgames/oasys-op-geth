@@ -72,8 +72,10 @@ var DefaultConfig = Config{
 	// consensus-layer usually will wait a half slot of time(6s)
 	// for payload generation. It should be enough for Geth to
 	// run 3 rounds.
-	Recommit:          2 * time.Second,
-	NewPayloadTimeout: 2 * time.Second,
+	// NOTE: This value is related to the block time.
+	//       If the block time is changed, this value also be changed.
+	Recommit:          5 * time.Second,
+	NewPayloadTimeout: 5 * time.Second,
 }
 
 // Miner creates blocks and searches for proof-of-work values.

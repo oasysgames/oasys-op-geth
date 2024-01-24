@@ -570,7 +570,8 @@ func (api *ConsensusAPI) newPayload(params engine.ExecutableData, versionedHashe
 		log.Error("Ignoring pre-merge parent block", "number", params.Number, "hash", params.BlockHash, "td", ptd, "ttd", ttd)
 		return engine.INVALID_TERMINAL_BLOCK, nil
 	}
-	if block.Time() <= parent.Time() {
+	// allow the same timestamp as the parent block
+	if block.Time() < parent.Time() {
 		log.Warn("Invalid timestamp", "parent", block.Time(), "block", block.Time())
 		return api.invalid(errors.New("invalid timestamp"), parent.Header()), nil
 	}
