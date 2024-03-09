@@ -42,3 +42,8 @@ forkdiff:
 		--mount src=$(shell pwd),target=/host-pwd,type=bind \
 		protolambda/forkdiff:latest \
 		-repo /host-pwd/ -fork /host-pwd/fork.yaml -out /host-pwd/forkdiff.html
+
+geth-docker:
+	GIT_COMMIT=$$(git rev-parse HEAD) \
+	IMAGE_TAGS=latest,$$(git rev-parse HEAD) \
+	docker buildx bake -f docker-bake.hcl --progress plain --load

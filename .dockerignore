@@ -1,3 +1,8 @@
+.github
+Dockerfile
+docker-bake.hcl
+Makefile
+
 **/*_test.go
 
 build/_workspace
