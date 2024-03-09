@@ -45,5 +45,5 @@ forkdiff:
 
 geth-docker:
 	GIT_COMMIT=$$(git rev-parse HEAD) \
-	IMAGE_TAGS=latest,$$(git rev-parse --short HEAD) \
+	IMAGE_TAGS=latest,$$(git rev-parse HEAD) \
 	docker buildx bake -f docker-bake.hcl --progress plain --load
