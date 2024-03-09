@@ -37,5 +37,5 @@ jobs:
           IMAGE_TAGS: ${{ github.ref_name }}
         with:
           files: docker-bake.hcl
-          set: '*.platform=linux/amd64,linux/arm64,linux/arm/v7'
+          set: '*.platform=linux/amd64,linux/arm64'
           push: true
