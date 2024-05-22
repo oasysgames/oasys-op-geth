@@ -27,10 +27,18 @@ import (
 
 // Genesis hashes to enforce below configs on.
 var (
-	MainnetGenesisHash = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3")
-	HoleskyGenesisHash = common.HexToHash("0xb5f7f912443c940f21fd611f12828d75b534364ed9e95ca4e307729a4661bde4")
-	SepoliaGenesisHash = common.HexToHash("0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9")
-	GoerliGenesisHash  = common.HexToHash("0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a")
+	MainnetGenesisHash = common.HexToHash(
+		"0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
+	)
+	HoleskyGenesisHash = common.HexToHash(
+		"0xb5f7f912443c940f21fd611f12828d75b534364ed9e95ca4e307729a4661bde4",
+	)
+	SepoliaGenesisHash = common.HexToHash(
+		"0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9",
+	)
+	GoerliGenesisHash = common.HexToHash(
+		"0xbf7e331f7f7c1dd2e05159666b3bf8bc7a8a3a9eb1d518969eab529dd9b88c1a",
+	)
 )
 
 const (
@@ -456,27 +464,69 @@ func (c *ChainConfig) Description() string {
 	// makes sense for mainnet should be optional at printing to avoid bloating
 	// the output for testnets and private networks.
 	banner += "Pre-Merge hard forks (block based):\n"
-	banner += fmt.Sprintf(" - Homestead:                   #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/homestead.md)\n", c.HomesteadBlock)
+	banner += fmt.Sprintf(
+		" - Homestead:                   #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/homestead.md)\n",
+		c.HomesteadBlock,
+	)
 	if c.DAOForkBlock != nil {
-		banner += fmt.Sprintf(" - DAO Fork:                    #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/dao-fork.md)\n", c.DAOForkBlock)
+		banner += fmt.Sprintf(
+			" - DAO Fork:                    #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/dao-fork.md)\n",
+			c.DAOForkBlock,
+		)
 	}
-	banner += fmt.Sprintf(" - Tangerine Whistle (EIP 150): #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/tangerine-whistle.md)\n", c.EIP150Block)
-	banner += fmt.Sprintf(" - Spurious Dragon/1 (EIP 155): #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/spurious-dragon.md)\n", c.EIP155Block)
-	banner += fmt.Sprintf(" - Spurious Dragon/2 (EIP 158): #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/spurious-dragon.md)\n", c.EIP155Block)
-	banner += fmt.Sprintf(" - Byzantium:                   #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/byzantium.md)\n", c.ByzantiumBlock)
-	banner += fmt.Sprintf(" - Constantinople:              #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/constantinople.md)\n", c.ConstantinopleBlock)
-	banner += fmt.Sprintf(" - Petersburg:                  #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/petersburg.md)\n", c.PetersburgBlock)
-	banner += fmt.Sprintf(" - Istanbul:                    #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/istanbul.md)\n", c.IstanbulBlock)
+	banner += fmt.Sprintf(
+		" - Tangerine Whistle (EIP 150): #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/tangerine-whistle.md)\n",
+		c.EIP150Block,
+	)
+	banner += fmt.Sprintf(
+		" - Spurious Dragon/1 (EIP 155): #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/spurious-dragon.md)\n",
+		c.EIP155Block,
+	)
+	banner += fmt.Sprintf(
+		" - Spurious Dragon/2 (EIP 158): #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/spurious-dragon.md)\n",
+		c.EIP155Block,
+	)
+	banner += fmt.Sprintf(
+		" - Byzantium:                   #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/byzantium.md)\n",
+		c.ByzantiumBlock,
+	)
+	banner += fmt.Sprintf(
+		" - Constantinople:              #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/constantinople.md)\n",
+		c.ConstantinopleBlock,
+	)
+	banner += fmt.Sprintf(
+		" - Petersburg:                  #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/petersburg.md)\n",
+		c.PetersburgBlock,
+	)
+	banner += fmt.Sprintf(
+		" - Istanbul:                    #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/istanbul.md)\n",
+		c.IstanbulBlock,
+	)
 	if c.MuirGlacierBlock != nil {
-		banner += fmt.Sprintf(" - Muir Glacier:                #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/muir-glacier.md)\n", c.MuirGlacierBlock)
+		banner += fmt.Sprintf(
+			" - Muir Glacier:                #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/muir-glacier.md)\n",
+			c.MuirGlacierBlock,
+		)
 	}
-	banner += fmt.Sprintf(" - Berlin:                      #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/berlin.md)\n", c.BerlinBlock)
-	banner += fmt.Sprintf(" - London:                      #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md)\n", c.LondonBlock)
+	banner += fmt.Sprintf(
+		" - Berlin:                      #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/berlin.md)\n",
+		c.BerlinBlock,
+	)
+	banner += fmt.Sprintf(
+		" - London:                      #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md)\n",
+		c.LondonBlock,
+	)
 	if c.ArrowGlacierBlock != nil {
-		banner += fmt.Sprintf(" - Arrow Glacier:               #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/arrow-glacier.md)\n", c.ArrowGlacierBlock)
+		banner += fmt.Sprintf(
+			" - Arrow Glacier:               #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/arrow-glacier.md)\n",
+			c.ArrowGlacierBlock,
+		)
 	}
 	if c.GrayGlacierBlock != nil {
-		banner += fmt.Sprintf(" - Gray Glacier:                #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/gray-glacier.md)\n", c.GrayGlacierBlock)
+		banner += fmt.Sprintf(
+			" - Gray Glacier:                #%-8v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/gray-glacier.md)\n",
+			c.GrayGlacierBlock,
+		)
 	}
 	if len(c.ZeroFeeTimes) > 0 {
 		banner += "\nZero Fee Times:\n"
@@ -486,7 +536,13 @@ func (c *ChainConfig) Description() string {
 			if i%2 != 0 {
 				mode = "Disabled"
 			}
-			banner += fmt.Sprintf(" - %d: %s                  @%d (%s)\n", i, mode, val, time.Unix(int64(val), 0))
+			banner += fmt.Sprintf(
+				" - %d: %s                  @%d (%s)\n",
+				i,
+				mode,
+				val,
+				time.Unix(int64(val), 0),
+			)
 		}
 	}
 	banner += "\n"
@@ -509,7 +565,10 @@ func (c *ChainConfig) Description() string {
 	// Create a list of forks post-merge
 	banner += "Post-Merge hard forks (timestamp based):\n"
 	if c.ShanghaiTime != nil {
-		banner += fmt.Sprintf(" - Shanghai:                    @%-10v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/shanghai.md)\n", *c.ShanghaiTime)
+		banner += fmt.Sprintf(
+			" - Shanghai:                    @%-10v (https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/shanghai.md)\n",
+			*c.ShanghaiTime,
+		)
 	}
 	if c.CancunTime != nil {
 		banner += fmt.Sprintf(" - Cancun:                      @%-10v\n", *c.CancunTime)
@@ -576,7 +635,8 @@ func (c *ChainConfig) IsMuirGlacier(num *big.Int) bool {
 // - equal to or greater than the PetersburgBlock fork block,
 // - OR is nil, and Constantinople is active
 func (c *ChainConfig) IsPetersburg(num *big.Int) bool {
-	return isBlockForked(c.PetersburgBlock, num) || c.PetersburgBlock == nil && isBlockForked(c.ConstantinopleBlock, num)
+	return isBlockForked(c.PetersburgBlock, num) ||
+		c.PetersburgBlock == nil && isBlockForked(c.ConstantinopleBlock, num)
 }
 
 // IsIstanbul returns whether num is either equal to the Istanbul fork block or greater.
@@ -609,7 +669,8 @@ func (c *ChainConfig) IsTerminalPoWBlock(parentTotalDiff *big.Int, totalDiff *bi
 	if c.TerminalTotalDifficulty == nil {
 		return false
 	}
-	return parentTotalDiff.Cmp(c.TerminalTotalDifficulty) < 0 && totalDiff.Cmp(c.TerminalTotalDifficulty) >= 0
+	return parentTotalDiff.Cmp(c.TerminalTotalDifficulty) < 0 &&
+		totalDiff.Cmp(c.TerminalTotalDifficulty) >= 0
 }
 
 // IsShanghai returns whether time is either equal to the Shanghai fork time or greater.
@@ -699,7 +760,8 @@ func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64, time u
 		if !ok {
 			return err
 		}
-		if lasterr != nil && curerr.RewindToBlock == lasterr.RewindToBlock && curerr.RewindToTime == lasterr.RewindToTime {
+		if lasterr != nil && curerr.RewindToBlock == lasterr.RewindToBlock &&
+			curerr.RewindToTime == lasterr.RewindToTime {
 			break
 		}
 		lasterr = curerr
@@ -753,8 +815,12 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 			// Non-optional forks must all be present in the chain config up to the last defined fork
 			case lastFork.block == nil && lastFork.timestamp == nil && (cur.block != nil || cur.timestamp != nil):
 				if cur.block != nil {
-					return fmt.Errorf("unsupported fork ordering: %v not enabled, but %v enabled at block %v",
-						lastFork.name, cur.name, cur.block)
+					return fmt.Errorf(
+						"unsupported fork ordering: %v not enabled, but %v enabled at block %v",
+						lastFork.name,
+						cur.name,
+						cur.block,
+					)
 				} else {
 					return fmt.Errorf("unsupported fork ordering: %v not enabled, but %v enabled at timestamp %v",
 						lastFork.name, cur.name, cur.timestamp)
@@ -763,8 +829,13 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 			// Fork (whether defined by block or timestamp) must follow the fork definition sequence
 			case (lastFork.block != nil && cur.block != nil) || (lastFork.timestamp != nil && cur.timestamp != nil):
 				if lastFork.block != nil && lastFork.block.Cmp(cur.block) > 0 {
-					return fmt.Errorf("unsupported fork ordering: %v enabled at block %v, but %v enabled at block %v",
-						lastFork.name, lastFork.block, cur.name, cur.block)
+					return fmt.Errorf(
+						"unsupported fork ordering: %v enabled at block %v, but %v enabled at block %v",
+						lastFork.name,
+						lastFork.block,
+						cur.name,
+						cur.block,
+					)
 				} else if lastFork.timestamp != nil && *lastFork.timestamp > *cur.timestamp {
 					return fmt.Errorf("unsupported fork ordering: %v enabled at timestamp %v, but %v enabled at timestamp %v",
 						lastFork.name, lastFork.timestamp, cur.name, cur.timestamp)
@@ -772,8 +843,11 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 
 				// Timestamp based forks can follow block based ones, but not the other way around
 				if lastFork.timestamp != nil && cur.block != nil {
-					return fmt.Errorf("unsupported fork ordering: %v used timestamp ordering, but %v reverted to block ordering",
-						lastFork.name, cur.name)
+					return fmt.Errorf(
+						"unsupported fork ordering: %v used timestamp ordering, but %v reverted to block ordering",
+						lastFork.name,
+						cur.name,
+					)
 				}
 			}
 		}
@@ -786,14 +860,24 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 	for i, cur := range c.ZeroFeeTimes {
 		if i > 0 {
 			if prev := c.ZeroFeeTimes[i-1]; cur <= prev {
-				return fmt.Errorf("zeroFeeTimes[%d]=@%d is earlier than zeroFeeTimes[%d]=@%d", i, cur, i-1, prev)
+				return fmt.Errorf(
+					"zeroFeeTimes[%d]=@%d is earlier than zeroFeeTimes[%d]=@%d",
+					i,
+					cur,
+					i-1,
+					prev,
+				)
 			}
 		}
 	}
 	return nil
 }
 
-func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, headTimestamp uint64) error {
+func (c *ChainConfig) checkCompatible(
+	newcfg *ChainConfig,
+	headNumber *big.Int,
+	headTimestamp uint64,
+) error {
 	if isForkBlockIncompatible(c.HomesteadBlock, newcfg.HomesteadBlock, headNumber) {
 		return newBlockCompatError("Homestead fork block", c.HomesteadBlock, newcfg.HomesteadBlock)
 	}
@@ -819,20 +903,32 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, 
 		return newBlockCompatError("Byzantium fork block", c.ByzantiumBlock, newcfg.ByzantiumBlock)
 	}
 	if isForkBlockIncompatible(c.ConstantinopleBlock, newcfg.ConstantinopleBlock, headNumber) {
-		return newBlockCompatError("Constantinople fork block", c.ConstantinopleBlock, newcfg.ConstantinopleBlock)
+		return newBlockCompatError(
+			"Constantinople fork block",
+			c.ConstantinopleBlock,
+			newcfg.ConstantinopleBlock,
+		)
 	}
 	if isForkBlockIncompatible(c.PetersburgBlock, newcfg.PetersburgBlock, headNumber) {
 		// the only case where we allow Petersburg to be set in the past is if it is equal to Constantinople
 		// mainly to satisfy fork ordering requirements which state that Petersburg fork be set if Constantinople fork is set
 		if isForkBlockIncompatible(c.ConstantinopleBlock, newcfg.PetersburgBlock, headNumber) {
-			return newBlockCompatError("Petersburg fork block", c.PetersburgBlock, newcfg.PetersburgBlock)
+			return newBlockCompatError(
+				"Petersburg fork block",
+				c.PetersburgBlock,
+				newcfg.PetersburgBlock,
+			)
 		}
 	}
 	if isForkBlockIncompatible(c.IstanbulBlock, newcfg.IstanbulBlock, headNumber) {
 		return newBlockCompatError("Istanbul fork block", c.IstanbulBlock, newcfg.IstanbulBlock)
 	}
 	if isForkBlockIncompatible(c.MuirGlacierBlock, newcfg.MuirGlacierBlock, headNumber) {
-		return newBlockCompatError("Muir Glacier fork block", c.MuirGlacierBlock, newcfg.MuirGlacierBlock)
+		return newBlockCompatError(
+			"Muir Glacier fork block",
+			c.MuirGlacierBlock,
+			newcfg.MuirGlacierBlock,
+		)
 	}
 	if isForkBlockIncompatible(c.BerlinBlock, newcfg.BerlinBlock, headNumber) {
 		return newBlockCompatError("Berlin fork block", c.BerlinBlock, newcfg.BerlinBlock)
@@ -841,16 +937,32 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, 
 		return newBlockCompatError("London fork block", c.LondonBlock, newcfg.LondonBlock)
 	}
 	if isForkBlockIncompatible(c.ArrowGlacierBlock, newcfg.ArrowGlacierBlock, headNumber) {
-		return newBlockCompatError("Arrow Glacier fork block", c.ArrowGlacierBlock, newcfg.ArrowGlacierBlock)
+		return newBlockCompatError(
+			"Arrow Glacier fork block",
+			c.ArrowGlacierBlock,
+			newcfg.ArrowGlacierBlock,
+		)
 	}
 	if isForkBlockIncompatible(c.GrayGlacierBlock, newcfg.GrayGlacierBlock, headNumber) {
-		return newBlockCompatError("Gray Glacier fork block", c.GrayGlacierBlock, newcfg.GrayGlacierBlock)
+		return newBlockCompatError(
+			"Gray Glacier fork block",
+			c.GrayGlacierBlock,
+			newcfg.GrayGlacierBlock,
+		)
 	}
 	if isForkBlockIncompatible(c.MergeNetsplitBlock, newcfg.MergeNetsplitBlock, headNumber) {
-		return newBlockCompatError("Merge netsplit fork block", c.MergeNetsplitBlock, newcfg.MergeNetsplitBlock)
+		return newBlockCompatError(
+			"Merge netsplit fork block",
+			c.MergeNetsplitBlock,
+			newcfg.MergeNetsplitBlock,
+		)
 	}
 	if isForkTimestampIncompatible(c.ShanghaiTime, newcfg.ShanghaiTime, headTimestamp) {
-		return newTimestampCompatError("Shanghai fork timestamp", c.ShanghaiTime, newcfg.ShanghaiTime)
+		return newTimestampCompatError(
+			"Shanghai fork timestamp",
+			c.ShanghaiTime,
+			newcfg.ShanghaiTime,
+		)
 	}
 	if isForkTimestampIncompatible(c.CancunTime, newcfg.CancunTime, headTimestamp) {
 		return newTimestampCompatError("Cancun fork timestamp", c.CancunTime, newcfg.CancunTime)
@@ -867,7 +979,11 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, 
 	for i, stored := range c.ZeroFeeTimes {
 		new := newcfg.ZeroFeeTimes[i]
 		if isForkTimestampIncompatible(&stored, &new, headTimestamp) {
-			return newTimestampCompatError(fmt.Sprintf("zeroFeeTimes[%d] fork timestamp", i), &stored, &new)
+			return newTimestampCompatError(
+				fmt.Sprintf("zeroFeeTimes[%d] fork timestamp", i),
+				&stored,
+				&new,
+			)
 		}
 	}
 	return nil
@@ -922,7 +1038,8 @@ func configBlockEqual(x, y *big.Int) bool {
 // isForkTimestampIncompatible returns true if a fork scheduled at timestamp s1
 // cannot be rescheduled to timestamp s2 because head is already past the fork.
 func isForkTimestampIncompatible(s1, s2 *uint64, head uint64) bool {
-	return (isTimestampForked(s1, head) || isTimestampForked(s2, head)) && !configTimestampEqual(s1, s2)
+	return (isTimestampForked(s1, head) || isTimestampForked(s2, head)) &&
+		!configTimestampEqual(s1, s2)
 }
 
 // isTimestampForked returns whether a fork scheduled at timestamp s is active
@@ -1009,9 +1126,21 @@ func newTimestampCompatError(what string, storedtime, newtime *uint64) *ConfigCo
 
 func (err *ConfigCompatError) Error() string {
 	if err.StoredBlock != nil {
-		return fmt.Sprintf("mismatching %s in database (have block %d, want block %d, rewindto block %d)", err.What, err.StoredBlock, err.NewBlock, err.RewindToBlock)
+		return fmt.Sprintf(
+			"mismatching %s in database (have block %d, want block %d, rewindto block %d)",
+			err.What,
+			err.StoredBlock,
+			err.NewBlock,
+			err.RewindToBlock,
+		)
 	}
-	return fmt.Sprintf("mismatching %s in database (have timestamp %d, want timestamp %d, rewindto timestamp %d)", err.What, err.StoredTime, err.NewTime, err.RewindToTime)
+	return fmt.Sprintf(
+		"mismatching %s in database (have timestamp %d, want timestamp %d, rewindto timestamp %d)",
+		err.What,
+		err.StoredTime,
+		err.NewTime,
+		err.RewindToTime,
+	)
 }
 
 // Rules wraps ChainConfig and is merely syntactic sugar or can be used for functions
