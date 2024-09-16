@@ -1027,6 +1027,9 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 		vmenv := vm.NewEVM(context, vm.TxContext{}, env.state, w.chainConfig, vm.Config{})
 		core.ProcessBeaconBlockRoot(*header.ParentBeaconRoot, vmenv, env.state)
 	}
+
+	core.UpdateContract(env.state, env.header.Number.Uint64(), "worker")
+
 	return env, nil
 }
 

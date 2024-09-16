@@ -621,6 +621,13 @@ var (
 		Category:  flags.MiscCategory,
 	}
 
+	// DANGEROUS settings
+	ContractUpdateFlag = &cli.StringFlag{
+		Name:     "contractupdate",
+		Usage:    "Path to the contract update configuration file",
+		Category: flags.DangerousCategory,
+	}
+
 	// RPC settings
 	IPCDisabledFlag = &cli.BoolFlag{
 		Name:     "ipcdisable",
@@ -1753,6 +1760,9 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	setRequiredBlocks(ctx, cfg)
 	setLes(ctx, cfg)
 
+	// Load contract update configuration file
+	loadContractUpdateConfig(ctx)
+
 	// Cap the cache allowance and tune the garbage collector
 	mem, err := gopsutil.VirtualMemory()
 	if err == nil {
@@ -2355,4 +2365,10 @@ func MakeTrieDatabase(ctx *cli.Context, disk ethdb.Database, preimage bool, read
 		config.PathDB = pathdb.Defaults
 	}
 	return trie.NewDatabase(disk, config)
+}
+
+func loadContractUpdateConfig(ctx *cli.Context) {
+	if s := ctx.String(ContractUpdateFlag.Name); s != "" {
+		core.LoadContractUpdateConfig(s)
+	}
 }

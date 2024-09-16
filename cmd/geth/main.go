@@ -154,6 +154,7 @@ var (
 		utils.RollupComputePendingBlock,
 		utils.RollupHaltOnIncompatibleProtocolVersionFlag,
 		utils.RollupSuperchainUpgradesFlag,
+		utils.ContractUpdateFlag,
 		configFileFlag,
 	}, utils.NetworkFlags, utils.DatabaseFlags)
 
