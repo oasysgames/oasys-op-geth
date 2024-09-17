@@ -1027,9 +1027,6 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 		vmenv := vm.NewEVM(context, vm.TxContext{}, env.state, w.chainConfig, vm.Config{})
 		core.ProcessBeaconBlockRoot(*header.ParentBeaconRoot, vmenv, env.state)
 	}
-
-	core.UpdateContract(env.state, env.header.Number.Uint64(), "worker")
-
 	return env, nil
 }
 
@@ -1074,6 +1071,8 @@ func (w *worker) generateWork(genParams *generateParams) *newPayloadResult {
 	if work.gasPool == nil {
 		work.gasPool = new(core.GasPool).AddGas(work.header.GasLimit)
 	}
+
+	core.UpdateContract(work.state, work.header.Number.Uint64(), "worker")
 
 	misc.EnsureCreate2Deployer(w.chainConfig, work.header.Time, work.state)
 
