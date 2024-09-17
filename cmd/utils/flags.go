@@ -621,11 +621,11 @@ var (
 		Category:  flags.MiscCategory,
 	}
 
-	// DANGEROUS settings
+	// OASYS settings
 	ContractUpdateFlag = &cli.StringFlag{
-		Name:     "contractupdate",
+		Name:     "dangerous.contractupdate",
 		Usage:    "Path to the contract update configuration file",
-		Category: flags.DangerousCategory,
+		Category: flags.OasysCategory,
 	}
 
 	// RPC settings

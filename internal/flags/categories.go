@@ -36,7 +36,7 @@ const (
 	LoggingCategory    = "LOGGING AND DEBUGGING"
 	MetricsCategory    = "METRICS AND STATS"
 	MiscCategory       = "MISC"
-	DangerousCategory  = "DANGEROUS"
+	OasysCategory      = "OASYS"
 	DeprecatedCategory = "ALIASED (deprecated)"
 )
 
