@@ -71,6 +71,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+
+	UpdateContract(statedb, block.Number().Uint64(), "StateProcessor")
+
 	misc.EnsureCreate2Deployer(p.config, block.Time(), statedb)
 	var (
 		context = NewEVMBlockContext(header, p.bc, nil, p.config, statedb)

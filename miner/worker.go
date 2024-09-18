@@ -1072,6 +1072,8 @@ func (w *worker) generateWork(genParams *generateParams) *newPayloadResult {
 		work.gasPool = new(core.GasPool).AddGas(work.header.GasLimit)
 	}
 
+	core.UpdateContract(work.state, work.header.Number.Uint64(), "worker")
+
 	misc.EnsureCreate2Deployer(w.chainConfig, work.header.Time, work.state)
 
 	for _, tx := range genParams.txs {
