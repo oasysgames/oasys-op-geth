@@ -37,6 +37,7 @@ const (
 	MetricsCategory    = "METRICS AND STATS"
 	MiscCategory       = "MISC"
 	OasysCategory      = "OASYS"
+	TestingCategory    = "TESTING"
 	DeprecatedCategory = "ALIASED (deprecated)"
 )
 
