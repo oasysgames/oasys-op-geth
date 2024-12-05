@@ -87,6 +87,15 @@ func newFetchResult(header *types.Header, fastSync bool) *fetchResult {
 	return item
 }
 
+// body returns a representation of the fetch result as a types.Body object.
+func (f *fetchResult) body() types.Body {
+	return types.Body{
+		Transactions: f.Transactions,
+		Uncles:       f.Uncles,
+		Withdrawals:  f.Withdrawals,
+	}
+}
+
 // SetBodyDone flags the body as finished.
 func (f *fetchResult) SetBodyDone() {
 	if v := f.pending.Load(); (v & (1 << bodyType)) != 0 {
@@ -376,6 +385,7 @@ func (q *queue) Results(block bool) []*fetchResult {
 		for _, tx := range result.Transactions {
 			size += common.StorageSize(tx.Size())
 		}
+		size += common.StorageSize(result.Withdrawals.Size())
 		q.resultSize = common.StorageSize(blockCacheSizeWeight)*size +
 			(1-common.StorageSize(blockCacheSizeWeight))*q.resultSize
 	}
