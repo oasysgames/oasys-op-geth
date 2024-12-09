@@ -2,7 +2,7 @@
 #       It will not be able to be referenced by RUN.
 
 # Build Geth in a stock Go builder container
-FROM golang:1.21.3-bullseye as builder
+FROM golang:1.21.3-bullseye AS builder
 
 # Support setting various labels on the final image
 ARG COMMIT=""
