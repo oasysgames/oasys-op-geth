@@ -1084,7 +1084,7 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, headNumber *big.Int, 
 	}
 	for i, stored := range c.ZeroFeeTimes {
 		new := newcfg.ZeroFeeTimes[i]
-		if isForkTimestampIncompatible(&stored, &new, headTimestamp) {
+		if isForkTimestampIncompatible(&stored, &new, headTimestamp, genesisTimestamp) {
 			return newTimestampCompatError(
 				fmt.Sprintf("zeroFeeTimes[%d] fork timestamp", i),
 				&stored,
