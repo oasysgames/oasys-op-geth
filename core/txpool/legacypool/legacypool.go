@@ -568,9 +568,21 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 				}
 			}
 		}
+		if filter.MaxDATxSize != nil && !pool.locals.contains(addr) {
+			for i, tx := range txs {
+				estimate := tx.RollupCostData().EstimatedDASize()
+				if estimate.Cmp(filter.MaxDATxSize) > 0 {
+					log.Debug("filtering tx that exceeds max da tx size",
+						"hash", tx.Hash(), "txda", estimate, "dalimit", filter.MaxDATxSize)
+					txs = txs[:i]
+					break
+				}
+			}
+		}
 		if len(txs) > 0 {
 			lazies := make([]*txpool.LazyTransaction, len(txs))
 			for i := 0; i < len(txs); i++ {
+				daBytes := txs[i].RollupCostData().EstimatedDASize()
 				lazies[i] = &txpool.LazyTransaction{
 					Pool:      pool,
 					Hash:      txs[i].Hash(),
@@ -580,6 +592,7 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 					GasTipCap: uint256.MustFromBig(txs[i].GasTipCap()),
 					Gas:       txs[i].Gas(),
 					BlobGas:   txs[i].BlobGas(),
+					DABytes:   daBytes,
 				}
 			}
 			pending[addr] = lazies
@@ -1734,6 +1747,16 @@ func (pool *LegacyPool) demoteUnexecutables() {
 		}
 		pendingNofundsMeter.Mark(int64(len(drops)))
 
+		// Drop all transactions that were rejected by the miner
+		rejectedDrops := list.txs.Filter(func(tx *types.Transaction) bool {
+			return tx.Rejected()
+		})
+		for _, tx := range rejectedDrops {
+			hash := tx.Hash()
+			pool.all.Remove(hash)
+			log.Trace("Removed rejected transaction", "hash", hash)
+		}
+
 		for _, tx := range invalids {
 			hash := tx.Hash()
 			log.Trace("Demoting pending transaction", "hash", hash)
@@ -1741,9 +1764,9 @@ func (pool *LegacyPool) demoteUnexecutables() {
 			// Internal shuffle shouldn't touch the lookup set.
 			pool.enqueueTx(hash, tx, false, false)
 		}
-		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+		pendingGauge.Dec(int64(len(olds) + len(drops) + len(invalids) + len(rejectedDrops)))
 		if pool.locals.contains(addr) {
-			localGauge.Dec(int64(len(olds) + len(drops) + len(invalids)))
+			localGauge.Dec(int64(len(olds) + len(drops) + len(invalids) + len(rejectedDrops)))
 		}
 		// If there's a gap in front, alert (should never happen) and postpone all transactions
 		if list.Len() > 0 && list.txs.Get(nonce) == nil {

@@ -329,6 +329,11 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 				b.header.Difficulty = big.NewInt(0)
 			}
 		}
+		if config.IsOptimismIsthmus(b.header.Time) {
+			b.withdrawals = make([]*types.Withdrawal, 0)
+			h := types.EmptyWithdrawalsHash
+			b.header.WithdrawalsHash = &h
+		}
 		// Mutate the state and block according to any hard-fork specs
 		if daoBlock := config.DAOForkBlock; daoBlock != nil {
 			limit := new(big.Int).Add(daoBlock, params.DAOForkExtraRange)
@@ -346,7 +351,18 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 			gen(i, b)
 		}
 
-		body := types.Body{Transactions: b.txs, Uncles: b.uncles, Withdrawals: b.withdrawals}
+		var requests types.Requests
+		if config.IsPrague(b.header.Number, b.header.Time) {
+			for _, r := range b.receipts {
+				d, err := ParseDepositLogs(r.Logs, config)
+				if err != nil {
+					panic(fmt.Sprintf("failed to parse deposit log: %v", err))
+				}
+				requests = append(requests, d...)
+			}
+		}
+
+		body := types.Body{Transactions: b.txs, Uncles: b.uncles, Withdrawals: b.withdrawals, Requests: requests}
 		block, err := b.engine.FinalizeAndAssemble(cm, b.header, statedb, &body, b.receipts)
 		if err != nil {
 			panic(err)
@@ -368,7 +384,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	defer triedb.Close()
 
 	for i := 0; i < n; i++ {
-		statedb, err := state.New(parent.Root(), state.NewDatabaseWithNodeDB(db, triedb), nil)
+		statedb, err := state.New(parent.Root(), state.NewDatabase(triedb, nil))
 		if err != nil {
 			panic(err)
 		}
@@ -467,15 +483,14 @@ func GenerateVerkleChain(config *params.ChainConfig, parent *types.Block, engine
 			panic(fmt.Sprintf("trie write error: %v", err))
 		}
 
-		// TODO uncomment when proof generation is merged
-		// proofs = append(proofs, block.ExecutionWitness().VerkleProof)
-		// keyvals = append(keyvals, block.ExecutionWitness().StateDiff)
+		proofs = append(proofs, block.ExecutionWitness().VerkleProof)
+		keyvals = append(keyvals, block.ExecutionWitness().StateDiff)
 
 		return block, b.receipts
 	}
 
 	for i := 0; i < n; i++ {
-		statedb, err := state.New(parent.Root(), state.NewDatabaseWithNodeDB(db, trdb), nil)
+		statedb, err := state.New(parent.Root(), state.NewDatabase(trdb, nil))
 		if err != nil {
 			panic(err)
 		}

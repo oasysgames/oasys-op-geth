@@ -64,6 +64,12 @@ type Transaction struct {
 
 	// cache of details to compute the data availability fee
 	rollupCostData atomic.Value
+
+	// optional preconditions for inclusion
+	conditional atomic.Pointer[TransactionConditional]
+
+	// an indicator if this transaction is rejected during block building
+	rejected atomic.Bool
 }
 
 // NewTx creates a new transaction.
@@ -334,8 +340,11 @@ func (tx *Transaction) To() *common.Address {
 // e.g. a user deposit event, or a L1 info deposit included in a specific L2 block height.
 // Non-deposit transactions return a zeroed hash.
 func (tx *Transaction) SourceHash() common.Hash {
-	if dep, ok := tx.inner.(*DepositTx); ok {
-		return dep.SourceHash
+	switch tx.inner.(type) {
+	case *DepositTx:
+		return tx.inner.(*DepositTx).SourceHash
+	case *depositTxWithNonce:
+		return tx.inner.(*depositTxWithNonce).SourceHash
 	}
 	return common.Hash{}
 }
@@ -343,8 +352,11 @@ func (tx *Transaction) SourceHash() common.Hash {
 // Mint returns the ETH to mint in the deposit tx.
 // This returns nil if there is nothing to mint, or if this is not a deposit tx.
 func (tx *Transaction) Mint() *big.Int {
-	if dep, ok := tx.inner.(*DepositTx); ok {
-		return dep.Mint
+	switch tx.inner.(type) {
+	case *DepositTx:
+		return tx.inner.(*DepositTx).Mint
+	case *depositTxWithNonce:
+		return tx.inner.(*depositTxWithNonce).Mint
 	}
 	return nil
 }
@@ -385,6 +397,26 @@ func (tx *Transaction) RollupCostData() RollupCostData {
 	out := NewRollupCostData(data)
 	tx.rollupCostData.Store(out)
 	return out
+}
+
+// Conditional returns the conditional attached to the transaction
+func (tx *Transaction) Conditional() *TransactionConditional {
+	return tx.conditional.Load()
+}
+
+// SetConditional attaches a conditional to the transaction
+func (tx *Transaction) SetConditional(cond *TransactionConditional) {
+	tx.conditional.Store(cond)
+}
+
+// Rejected will mark this transaction as rejected.
+func (tx *Transaction) SetRejected() {
+	tx.rejected.Store(true)
+}
+
+// Rejected returns the rejected status of this tx
+func (tx *Transaction) Rejected() bool {
+	return tx.rejected.Load()
 }
 
 // RawSignatureValues returns the V, R, S signature values of the transaction.
@@ -549,9 +581,9 @@ func (tx *Transaction) WithBlobTxSidecar(sideCar *BlobTxSidecar) *Transaction {
 	return cpy
 }
 
-// SetTime sets the decoding time of a transaction. This is used by tests to set
-// arbitrary times and by persistent transaction pools when loading old txs from
-// disk.
+// SetTime sets the decoding time of a transaction. Used by the sequencer API to
+// determine mempool time spent by conditional txs and by tests to set arbitrary
+// times and by persistent transaction pools when loading old txs from disk.
 func (tx *Transaction) SetTime(t time.Time) {
 	tx.time = t
 }
@@ -643,7 +675,7 @@ func (s Transactions) EncodeIndex(i int, w *bytes.Buffer) {
 func TxDifference(a, b Transactions) Transactions {
 	keep := make(Transactions, 0, len(a))
 
-	remove := make(map[common.Hash]struct{})
+	remove := make(map[common.Hash]struct{}, b.Len())
 	for _, tx := range b {
 		remove[tx.Hash()] = struct{}{}
 	}
