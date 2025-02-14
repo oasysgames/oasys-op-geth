@@ -21,6 +21,7 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/clique"
@@ -74,11 +75,12 @@ func (bc *testBlockChain) CurrentBlock() *types.Header {
 	return &types.Header{
 		Number:   new(big.Int),
 		GasLimit: bc.gasLimit,
+		BaseFee:  big.NewInt(params.InitialBaseFee),
 	}
 }
 
 func (bc *testBlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
-	return types.NewBlock(bc.CurrentBlock(), nil, nil, trie.NewStackTrie(nil))
+	return types.NewBlock(bc.CurrentBlock(), nil, nil, trie.NewStackTrie(nil), types.DefaultBlockConfig)
 }
 
 func (bc *testBlockChain) StateAt(common.Hash) (*state.StateDB, error) {
@@ -139,31 +141,80 @@ func minerTestGenesisBlock(period uint64, gasLimit uint64, faucet common.Address
 func createMiner(t *testing.T) *Miner {
 	// Create Ethash config
 	config := Config{
-		PendingFeeRecipient: common.HexToAddress("123456789"),
+		PendingFeeRecipient:                   common.HexToAddress("123456789"),
+		RollupTransactionConditionalRateLimit: params.TransactionConditionalMaxCost,
 	}
 	// Create chainConfig
 	chainDB := rawdb.NewMemoryDatabase()
 	triedb := triedb.NewDatabase(chainDB, nil)
-	genesis := minerTestGenesisBlock(15, 11_500_000, common.HexToAddress("12345"))
+	genesis := minerTestGenesisBlock(15, 11_500_000, testBankAddress)
 	chainConfig, _, err := core.SetupGenesisBlock(chainDB, triedb, genesis)
 	if err != nil {
 		t.Fatalf("can't create new chain config: %v", err)
 	}
+
 	// Create consensus engine
 	engine := clique.New(chainConfig.Clique, chainDB)
 	// Create Ethereum backend
-	bc, err := core.NewBlockChain(chainDB, nil, genesis, nil, engine, vm.Config{}, nil, nil)
+	bc, err := core.NewBlockChain(chainDB, nil, genesis, nil, engine, vm.Config{}, nil)
 	if err != nil {
 		t.Fatalf("can't create new chain %v", err)
 	}
-	statedb, _ := state.New(bc.Genesis().Root(), bc.StateCache(), nil)
+	statedb, _ := state.New(bc.Genesis().Root(), bc.StateCache())
 	blockchain := &testBlockChain{bc.Genesis().Root(), chainConfig, statedb, 10000000, new(event.Feed)}
 
 	pool := legacypool.New(testTxPoolConfig, blockchain)
-	txpool, _ := txpool.New(testTxPoolConfig.PriceLimit, blockchain, []txpool.SubPool{pool})
+	txpool, _ := txpool.New(testTxPoolConfig.PriceLimit, blockchain, []txpool.SubPool{pool}, nil)
 
 	// Create Miner
 	backend := NewMockBackend(bc, txpool)
 	miner := New(backend, config, engine)
 	return miner
+}
+
+func TestRejectedConditionalTx(t *testing.T) {
+	miner := createMiner(t)
+	timestamp := uint64(time.Now().Unix())
+	uint64Ptr := func(num uint64) *uint64 { return &num }
+
+	// add a conditional transaction to be rejected
+	signer := types.LatestSigner(miner.chainConfig)
+	tx := types.MustSignNewTx(testBankKey, signer, &types.LegacyTx{
+		Nonce:    0,
+		To:       &testUserAddress,
+		Value:    big.NewInt(1000),
+		Gas:      params.TxGas,
+		GasPrice: big.NewInt(params.InitialBaseFee),
+	})
+	tx.SetConditional(&types.TransactionConditional{TimestampMax: uint64Ptr(timestamp - 1)})
+
+	// 1 pending tx (synchronously, it has to be there before it can be rejected)
+	miner.txpool.Add(types.Transactions{tx}, true, true)
+	if !miner.txpool.Has(tx.Hash()) {
+		t.Fatalf("conditional tx is not in the mempool")
+	}
+
+	// request block
+	r := miner.generateWork(&generateParams{
+		parentHash: miner.chain.CurrentBlock().Hash(),
+		timestamp:  timestamp,
+		random:     common.HexToHash("0xcafebabe"),
+		noTxs:      false,
+		forceTime:  true,
+	}, false)
+
+	if len(r.block.Transactions()) != 0 {
+		t.Fatalf("block should be empty")
+	}
+
+	// tx is rejected
+	if !tx.Rejected() {
+		t.Fatalf("conditional tx is not marked as rejected")
+	}
+
+	// rejected conditional is evicted from the txpool
+	miner.txpool.Sync()
+	if miner.txpool.Has(tx.Hash()) {
+		t.Fatalf("conditional tx is still in the mempool")
+	}
 }

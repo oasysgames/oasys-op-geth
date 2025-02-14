@@ -17,42 +17,33 @@
 package stateless
 
 import (
-	"bytes"
-	"errors"
-	"fmt"
 	"io"
-	"slices"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
-
-//go:generate go run github.com/fjl/gencodec -type extWitness -field-override extWitnessMarshalling -out gen_encoding_json.go
 
 // toExtWitness converts our internal witness representation to the consensus one.
 func (w *Witness) toExtWitness() *extWitness {
 	ext := &extWitness{
-		Block:   w.Block,
 		Headers: w.Headers,
 	}
 	ext.Codes = make([][]byte, 0, len(w.Codes))
 	for code := range w.Codes {
 		ext.Codes = append(ext.Codes, []byte(code))
 	}
-	slices.SortFunc(ext.Codes, bytes.Compare)
-
 	ext.State = make([][]byte, 0, len(w.State))
 	for node := range w.State {
 		ext.State = append(ext.State, []byte(node))
 	}
-	slices.SortFunc(ext.State, bytes.Compare)
 	return ext
 }
 
 // fromExtWitness converts the consensus witness format into our internal one.
 func (w *Witness) fromExtWitness(ext *extWitness) error {
-	w.Block, w.Headers = ext.Block, ext.Headers
+	w.Headers = ext.Headers
 
 	w.Codes = make(map[string]struct{}, len(ext.Codes))
 	for _, code := range ext.Codes {
@@ -62,26 +53,12 @@ func (w *Witness) fromExtWitness(ext *extWitness) error {
 	for _, node := range ext.State {
 		w.State[string(node)] = struct{}{}
 	}
-	return w.sanitize()
-}
-
-// MarshalJSON marshals a witness as JSON.
-func (w *Witness) MarshalJSON() ([]byte, error) {
-	return w.toExtWitness().MarshalJSON()
+	return nil
 }
 
 // EncodeRLP serializes a witness as RLP.
 func (w *Witness) EncodeRLP(wr io.Writer) error {
 	return rlp.Encode(wr, w.toExtWitness())
-}
-
-// UnmarshalJSON unmarshals from JSON.
-func (w *Witness) UnmarshalJSON(input []byte) error {
-	var ext extWitness
-	if err := ext.UnmarshalJSON(input); err != nil {
-		return err
-	}
-	return w.fromExtWitness(&ext)
 }
 
 // DecodeRLP decodes a witness from RLP.
@@ -93,37 +70,39 @@ func (w *Witness) DecodeRLP(s *rlp.Stream) error {
 	return w.fromExtWitness(&ext)
 }
 
-// sanitize checks for some mandatory fields in the witness after decoding so
-// the rest of the code can assume invariants and doesn't have to deal with
-// corrupted data.
-func (w *Witness) sanitize() error {
-	// Verify that the "parent" header (i.e. index 0) is available, and is the
-	// true parent of the block-to-be executed, since we use that to link the
-	// current block to the pre-state.
-	if len(w.Headers) == 0 {
-		return errors.New("parent header (for pre-root hash) missing")
-	}
-	for i, header := range w.Headers {
-		if header == nil {
-			return fmt.Errorf("witness header nil at position %d", i)
-		}
-	}
-	if w.Headers[0].Hash() != w.Block.ParentHash() {
-		return fmt.Errorf("parent hash different: witness %v, block parent %v", w.Headers[0].Hash(), w.Block.ParentHash())
-	}
-	return nil
-}
-
 // extWitness is a witness RLP encoding for transferring across clients.
 type extWitness struct {
-	Block   *types.Block    `json:"block"       gencodec:"required"`
-	Headers []*types.Header `json:"headers"       gencodec:"required"`
-	Codes   [][]byte        `json:"codes"`
-	State   [][]byte        `json:"state"`
+	Headers []*types.Header
+	Codes   [][]byte
+	State   [][]byte
 }
 
-// extWitnessMarshalling defines the hex marshalling types for a witness.
-type extWitnessMarshalling struct {
-	Codes []hexutil.Bytes
-	State []hexutil.Bytes
+// ExecutionWitness is a witness json encoding for transferring across clients
+// in the future, we'll probably consider using the extWitness format instead for less overhead.
+// currently we're using this format for compatibility with reth and also for simplicity in terms of parsing.
+type ExecutionWitness struct {
+	Headers []*types.Header   `json:"headers"`
+	Codes   map[string]string `json:"codes"`
+	State   map[string]string `json:"state"`
+}
+
+func transformMap(in map[string]struct{}) map[string]string {
+	out := make(map[string]string, len(in))
+	for item := range in {
+		bytes := []byte(item)
+		key := crypto.Keccak256Hash(bytes).Hex()
+		out[key] = hexutil.Encode(bytes)
+	}
+	return out
+}
+
+// ToExecutionWitness converts a witness to an execution witness format that is compatible with reth.
+// keccak(node) => node
+// keccak(bytecodes) => bytecodes
+func (w *Witness) ToExecutionWitness() *ExecutionWitness {
+	return &ExecutionWitness{
+		Headers: w.Headers,
+		Codes:   transformMap(w.Codes),
+		State:   transformMap(w.State),
+	}
 }

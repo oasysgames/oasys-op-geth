@@ -617,6 +617,12 @@ web3._extend({
 			inputFormatter: [web3._extend.formatters.inputCallFormatter, web3._extend.formatters.inputDefaultBlockNumberFormatter, null, null],
 		}),
 		new web3._extend.Method({
+			name: 'simulateV1',
+			call: 'eth_simulateV1',
+			params: 2,
+			inputFormatter: [null, web3._extend.formatters.inputDefaultBlockNumberFormatter],
+		}),
+		new web3._extend.Method({
 			name: 'getBlockReceipts',
 			call: 'eth_getBlockReceipts',
 			params: 1,
@@ -664,6 +670,12 @@ web3._extend({
 			call: 'miner_setGasLimit',
 			params: 1,
 			inputFormatter: [web3._extend.utils.fromDecimal]
+		}),
+		new web3._extend.Method({
+			name: 'setMaxDASize',
+			call: 'miner_setMaxDASize',
+			params: 2,
+			inputFormatter: [web3._extend.utils.fromDecimal, web3._extend.utils.fromDecimal]
 		}),
 	],
 	properties: []
