@@ -18,8 +18,10 @@ package downloader
 
 import (
 	"fmt"
+	"log/slog"
 	"math/big"
 	"math/rand"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -95,7 +97,7 @@ func TestBasics(t *testing.T) {
 	numOfBlocks := len(emptyChain.blocks)
 	numOfReceipts := len(emptyChain.blocks) / 2
 
-	q := newQueue(10, 10)
+	q := newQueue(nil, 10, 10)
 	if !q.Idle() {
 		t.Errorf("new queue should be idle")
 	}
@@ -194,7 +196,7 @@ func TestBasics(t *testing.T) {
 func TestEmptyBlocks(t *testing.T) {
 	numOfBlocks := len(emptyChain.blocks)
 
-	q := newQueue(10, 10)
+	q := newQueue(nil, 10, 10)
 
 	q.Prepare(1, SnapSync)
 
@@ -271,9 +273,9 @@ func XTestDelivery(t *testing.T) {
 	world.chain = blo
 	world.progress(10)
 	if false {
-		log.Root().SetHandler(log.StdoutHandler)
+		log.SetDefault(log.NewLogger(slog.NewTextHandler(os.Stdout, nil)))
 	}
-	q := newQueue(10, 10)
+	q := newQueue(nil, 10, 10)
 	var wg sync.WaitGroup
 	q.Prepare(1, SnapSync)
 	wg.Add(1)
@@ -339,7 +341,7 @@ func XTestDelivery(t *testing.T) {
 					uncleHashes[i] = types.CalcUncleHash(uncles)
 				}
 				time.Sleep(100 * time.Millisecond)
-				_, err := q.DeliverBodies(peer.id, txset, txsHashes, uncleset, uncleHashes, nil, nil)
+				_, err := q.DeliverBodies(peer.id, txset, txsHashes, uncleset, uncleHashes, nil, nil, nil, nil)
 				if err != nil {
 					fmt.Printf("delivered %d bodies %v\n", len(txset), err)
 				}

@@ -29,6 +29,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/consensus"
+	"github.com/ethereum/go-ethereum/consensus/beacon"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
 
 	"github.com/ethereum/go-ethereum"
@@ -193,7 +195,7 @@ var (
 
 var genesis = &core.Genesis{
 	Config:    params.AllEthashProtocolChanges,
-	Alloc:     core.GenesisAlloc{testAddr: {Balance: testBalance}},
+	Alloc:     types.GenesisAlloc{testAddr: {Balance: testBalance}},
 	ExtraData: []byte("test genesis"),
 	Timestamp: 9000,
 	BaseFee:   big.NewInt(params.InitialBaseFee),
@@ -286,8 +288,21 @@ func newMockHistoricalBackend(t *testing.T) string {
 func newTestBackend(t *testing.T, enableHistoricalState bool) (*node.Node, []*types.Block) {
 	histAddr := newMockHistoricalBackend(t)
 
-	// Generate test chain.
-	blocks := generateTestChain(enableHistoricalState)
+	var consensusEngine consensus.Engine
+	var actualGenesis *core.Genesis
+	var chainLength int
+	if enableHistoricalState {
+		actualGenesis = genesisForHistorical
+		consensusEngine = beacon.New(ethash.NewFaker())
+		chainLength = 10
+	} else {
+		actualGenesis = genesis
+		consensusEngine = ethash.NewFaker()
+		chainLength = 2
+	}
+
+	// Generate test chain
+	blocks := generateTestChain(consensusEngine, actualGenesis, chainLength)
 
 	// Create node
 	n, err := node.New(&node.Config{})
@@ -295,13 +310,7 @@ func newTestBackend(t *testing.T, enableHistoricalState bool) (*node.Node, []*ty
 		t.Fatalf("can't create new node: %v", err)
 	}
 	// Create Ethereum Service
-	var actualGenesis *core.Genesis
-	if enableHistoricalState {
-		actualGenesis = genesisForHistorical
-	} else {
-		actualGenesis = genesis
-	}
-	config := &ethconfig.Config{Genesis: actualGenesis}
+	config := &ethconfig.Config{Genesis: actualGenesis, RPCGasCap: 1000000}
 	if enableHistoricalState {
 		config.RollupHistoricalRPC = histAddr
 		config.RollupHistoricalRPCTimeout = time.Second * 5
@@ -310,6 +319,9 @@ func newTestBackend(t *testing.T, enableHistoricalState bool) (*node.Node, []*ty
 	if err != nil {
 		t.Fatalf("can't create new ethereum service: %v", err)
 	}
+	if enableHistoricalState { // swap to the pre-bedrock consensus-engine that we used to generate the historical blocks
+		ethservice.BlockChain().Engine().(*beacon.Beacon).SwapInner(ethash.NewFaker())
+	}
 	// Import the test chain.
 	if err := n.Start(); err != nil {
 		t.Fatalf("can't start test node: %v", err)
@@ -317,30 +329,39 @@ func newTestBackend(t *testing.T, enableHistoricalState bool) (*node.Node, []*ty
 	if _, err := ethservice.BlockChain().InsertChain(blocks[1:]); err != nil {
 		t.Fatalf("can't import test blocks: %v", err)
 	}
+
+	// Ensure the tx indexing is fully generated
+	for ; ; time.Sleep(time.Millisecond * 100) {
+		progress, err := ethservice.BlockChain().TxIndexProgress()
+		if err == nil && progress.Done() {
+			break
+		}
+	}
+
+	if enableHistoricalState {
+		// Now that we have a filled DB, swap the pre-Bedrock consensus to OpLegacy,
+		// which does not support re-processing of pre-bedrock data.
+		ethservice.Engine().(*beacon.Beacon).SwapInner(&beacon.OpLegacy{})
+	}
+
 	return n, blocks
 }
 
-func generateTestChain(enableHistoricalState bool) []*types.Block {
+func generateTestChain(consensusEngine consensus.Engine, genesis *core.Genesis, length int) []*types.Block {
 	generate := func(i int, g *core.BlockGen) {
 		g.OffsetTime(5)
 		g.SetExtra([]byte("test"))
 		if i == 1 {
 			// Test transactions are included in block #2.
-			if enableHistoricalState {
+			if genesis.Config.Optimism != nil && genesis.Config.IsBedrock(big.NewInt(1)) {
 				g.AddTx(depositTx)
 			}
 			g.AddTx(testTx1)
 			g.AddTx(testTx2)
 		}
 	}
-	var actualGenesis *core.Genesis
-	if enableHistoricalState {
-		actualGenesis = genesisForHistorical
-	} else {
-		actualGenesis = genesis
-	}
-	_, blocks, _ := core.GenerateChainWithGenesis(actualGenesis, ethash.NewFaker(), 2, generate)
-	return append([]*types.Block{actualGenesis.ToBlock()}, blocks...)
+	_, blocks, _ := core.GenerateChainWithGenesis(genesis, consensusEngine, length, generate)
+	return append([]*types.Block{genesis.ToBlock()}, blocks...)
 }
 
 func TestEthClientHistoricalBackend(t *testing.T) {
@@ -368,7 +389,7 @@ func TestEthClient(t *testing.T) {
 			func(t *testing.T) { testBalanceAt(t, client) },
 		},
 		"TxInBlockInterrupted": {
-			func(t *testing.T) { testTransactionInBlockInterrupted(t, client) },
+			func(t *testing.T) { testTransactionInBlock(t, client) },
 		},
 		"ChainID": {
 			func(t *testing.T) { testChainID(t, client) },
@@ -436,7 +457,7 @@ func testHeader(t *testing.T, chain []*types.Block, client *rpc.Client) {
 				got.Number = big.NewInt(0) // hack to make DeepEqual work
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Fatalf("HeaderByNumber(%v)\n   = %v\nwant %v", tt.block, got, tt.want)
+				t.Fatalf("HeaderByNumber(%v) got = %v, want %v", tt.block, got, tt.want)
 			}
 		})
 	}
@@ -488,7 +509,7 @@ func testBalanceAt(t *testing.T, client *rpc.Client) {
 	}
 }
 
-func testTransactionInBlockInterrupted(t *testing.T, client *rpc.Client) {
+func testTransactionInBlock(t *testing.T, client *rpc.Client) {
 	ec := NewClient(client)
 
 	// Get current block by number.
@@ -497,21 +518,26 @@ func testTransactionInBlockInterrupted(t *testing.T, client *rpc.Client) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Test tx in block interrupted.
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	<-ctx.Done() // Ensure the close of the Done channel
-	tx, err := ec.TransactionInBlock(ctx, block.Hash(), 0)
-	if tx != nil {
-		t.Fatal("transaction should be nil")
-	}
-	if err == nil || err == ethereum.NotFound {
-		t.Fatal("error should not be nil/notfound")
-	}
-
 	// Test tx in block not found.
 	if _, err := ec.TransactionInBlock(context.Background(), block.Hash(), 20); err != ethereum.NotFound {
 		t.Fatal("error should be ethereum.NotFound")
+	}
+
+	// Test tx in block found.
+	tx, err := ec.TransactionInBlock(context.Background(), block.Hash(), 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tx.Hash() != testTx1.Hash() {
+		t.Fatalf("unexpected transaction: %v", tx)
+	}
+
+	tx, err = ec.TransactionInBlock(context.Background(), block.Hash(), 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tx.Hash() != testTx2.Hash() {
+		t.Fatalf("unexpected transaction: %v", tx)
 	}
 }
 
@@ -697,17 +723,22 @@ func testAtFunctions(t *testing.T, client *rpc.Client) {
 	}
 
 	// send a transaction for some interesting pending status
+	// and wait for the transaction to be included in the pending block
 	sendTransaction(ec)
-	time.Sleep(100 * time.Millisecond)
 
-	// Check pending transaction count
-	pending, err := ec.PendingTransactionCount(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	// wait for the transaction to be included in the pending block
+	for {
+		// Check pending transaction count
+		pending, err := ec.PendingTransactionCount(context.Background())
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if pending == 1 {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
-	if pending != 1 {
-		t.Fatalf("unexpected pending, wanted 1 got: %v", pending)
-	}
+
 	// Query balance
 	balance, err := ec.BalanceAt(context.Background(), testAddr, nil)
 	if err != nil {
@@ -880,7 +911,7 @@ func sendTransaction(ec *Client) error {
 	if err != nil {
 		return err
 	}
-	nonce, err := ec.PendingNonceAt(context.Background(), testAddr)
+	nonce, err := ec.NonceAt(context.Background(), testAddr, nil)
 	if err != nil {
 		return err
 	}

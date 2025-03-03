@@ -26,10 +26,12 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/holiman/uint256"
 )
 
 // Proof-of-stake protocol constants.
@@ -58,6 +60,7 @@ var (
 // is only used for necessary consensus checks. The legacy consensus engine can be any
 // engine implements the consensus interface (except the beacon itself).
 type Beacon struct {
+	// For migrated OP chains (OP mainnet, OP Goerli), ethone is a dummy legacy pre-Bedrock consensus
 	ethone consensus.Engine // Original consensus engine used in eth1, e.g. ethash or clique
 }
 
@@ -105,12 +108,27 @@ func errOut(n int, err error) chan error {
 	return errs
 }
 
+// OP-Stack Bedrock variant of splitHeaders: the total-terminal difficulty is terminated at bedrock transition, but also reset to 0.
+// So just use the bedrock fork check to split the headers, to simplify the splitting.
+// The returned slices are slices over the input. The input must be sorted.
+func (beacon *Beacon) splitBedrockHeaders(chain consensus.ChainHeaderReader, headers []*types.Header) ([]*types.Header, []*types.Header, error) {
+	for i, h := range headers {
+		if chain.Config().IsBedrock(h.Number) {
+			return headers[:i], headers[i:], nil
+		}
+	}
+	return headers, nil, nil
+}
+
 // splitHeaders splits the provided header batch into two parts according to
 // the configured ttd. It requires the parent of header batch along with its
 // td are stored correctly in chain. If ttd is not configured yet, all headers
 // will be treated legacy PoW headers.
 // Note, this function will not verify the header validity but just split them.
 func (beacon *Beacon) splitHeaders(chain consensus.ChainHeaderReader, headers []*types.Header) ([]*types.Header, []*types.Header, error) {
+	if chain.Config().Optimism != nil {
+		return beacon.splitBedrockHeaders(chain, headers)
+	}
 	// TTD is not defined yet, all headers should be in legacy format.
 	ttd := chain.Config().TerminalTotalDifficulty
 	if ttd == nil {
@@ -227,7 +245,7 @@ func (beacon *Beacon) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 // (c) the extradata is limited to 32 bytes
 func (beacon *Beacon) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header) error {
 	// Ensure that the header's extra-data section is of a reasonable size
-	if len(header.Extra) > 32 {
+	if len(header.Extra) > int(params.MaximumExtraDataSize) {
 		return fmt.Errorf("extra-data longer than 32 bytes (%d)", len(header.Extra))
 	}
 	// Verify the seal parts. Ensure the nonce and uncle hash are the expected value.
@@ -347,46 +365,90 @@ func (beacon *Beacon) Prepare(chain consensus.ChainHeaderReader, header *types.H
 }
 
 // Finalize implements consensus.Engine and processes withdrawals on top.
-func (beacon *Beacon) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, withdrawals []*types.Withdrawal) {
+func (beacon *Beacon) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, body *types.Body) {
 	if !beacon.IsPoSHeader(header) {
-		beacon.ethone.Finalize(chain, header, state, txs, uncles, nil)
+		beacon.ethone.Finalize(chain, header, state, body)
 		return
 	}
 	// Withdrawals processing.
-	for _, w := range withdrawals {
+	for _, w := range body.Withdrawals {
 		// Convert amount from gwei to wei.
-		amount := new(big.Int).SetUint64(w.Amount)
-		amount = amount.Mul(amount, big.NewInt(params.GWei))
-		state.AddBalance(w.Address, amount)
+		amount := new(uint256.Int).SetUint64(w.Amount)
+		amount = amount.Mul(amount, uint256.NewInt(params.GWei))
+		state.AddBalance(w.Address, amount, tracing.BalanceIncreaseWithdrawal)
 	}
 	// No block reward which is issued by consensus layer instead.
 }
 
 // FinalizeAndAssemble implements consensus.Engine, setting the final state and
 // assembling the block.
-func (beacon *Beacon) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt, withdrawals []*types.Withdrawal) (*types.Block, error) {
+func (beacon *Beacon) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, body *types.Body, receipts []*types.Receipt) (*types.Block, error) {
 	if !beacon.IsPoSHeader(header) {
-		return beacon.ethone.FinalizeAndAssemble(chain, header, state, txs, uncles, receipts, nil)
+		return beacon.ethone.FinalizeAndAssemble(chain, header, state, body, receipts)
 	}
 	shanghai := chain.Config().IsShanghai(header.Number, header.Time)
 	if shanghai {
 		// All blocks after Shanghai must include a withdrawals root.
-		if withdrawals == nil {
-			withdrawals = make([]*types.Withdrawal, 0)
+		if body.Withdrawals == nil {
+			body.Withdrawals = make([]*types.Withdrawal, 0)
 		}
 	} else {
-		if len(withdrawals) > 0 {
+		if len(body.Withdrawals) > 0 {
 			return nil, errors.New("withdrawals set before Shanghai activation")
 		}
 	}
 	// Finalize and assemble the block.
-	beacon.Finalize(chain, header, state, txs, uncles, withdrawals)
+	beacon.Finalize(chain, header, state, body)
 
 	// Assign the final state root to header.
 	header.Root = state.IntermediateRoot(true)
 
-	// Assemble and return the final block.
-	return types.NewBlockWithWithdrawals(header, txs, uncles, receipts, withdrawals, trie.NewStackTrie(nil)), nil
+	if chain.Config().IsOptimismIsthmus(header.Time) {
+		if body.Withdrawals == nil || len(body.Withdrawals) > 0 { // We verify nil/empty withdrawals in the CL pre-Isthmus
+			return nil, fmt.Errorf("expected non-nil empty withdrawals operation list in Isthmus, but got: %v", body.Withdrawals)
+		}
+		// State-root has just been computed, we can get an accurate storage-root now.
+		h := state.GetStorageRoot(params.OptimismL2ToL1MessagePasser)
+		header.WithdrawalsHash = &h
+		sa := state.AccessEvents()
+		if sa != nil {
+			sa.AddAccount(params.OptimismL2ToL1MessagePasser, false) // include in execution witness
+		}
+	}
+
+	// Assemble the final block.
+	block := types.NewBlock(header, body, receipts, trie.NewStackTrie(nil), chain.Config())
+
+	// Create the block witness and attach to block.
+	// This step needs to happen as late as possible to catch all access events.
+	if chain.Config().IsVerkle(header.Number, header.Time) {
+		keys := state.AccessEvents().Keys()
+
+		// Open the pre-tree to prove the pre-state against
+		parent := chain.GetHeaderByNumber(header.Number.Uint64() - 1)
+		if parent == nil {
+			return nil, fmt.Errorf("nil parent header for block %d", header.Number)
+		}
+
+		preTrie, err := state.Database().OpenTrie(parent.Root)
+		if err != nil {
+			return nil, fmt.Errorf("error opening pre-state tree root: %w", err)
+		}
+
+		vktPreTrie, okpre := preTrie.(*trie.VerkleTrie)
+		vktPostTrie, okpost := state.GetTrie().(*trie.VerkleTrie)
+		if okpre && okpost {
+			if len(keys) > 0 {
+				verkleProof, stateDiff, err := vktPreTrie.Proof(vktPostTrie, keys, vktPreTrie.FlatdbNodeResolver)
+				if err != nil {
+					return nil, fmt.Errorf("error generating verkle proof for block %d: %w", header.Number, err)
+				}
+				block = block.WithWitness(&types.ExecutionWitness{StateDiff: stateDiff, VerkleProof: verkleProof})
+			}
+		}
+	}
+
+	return block, nil
 }
 
 // Seal generates a new sealing request for the given input block and pushes
@@ -446,6 +508,10 @@ func (beacon *Beacon) InnerEngine() consensus.Engine {
 	return beacon.ethone
 }
 
+func (beacon *Beacon) SwapInner(inner consensus.Engine) {
+	beacon.ethone = inner
+}
+
 // SetThreads updates the mining threads. Delegate the call
 // to the eth1 engine if it's threaded.
 func (beacon *Beacon) SetThreads(threads int) {
@@ -461,6 +527,11 @@ func (beacon *Beacon) SetThreads(threads int) {
 // It depends on the parentHash already being stored in the database.
 // If the parentHash is not stored in the database a UnknownAncestor error is returned.
 func IsTTDReached(chain consensus.ChainHeaderReader, parentHash common.Hash, parentNumber uint64) (bool, error) {
+	if cfg := chain.Config(); cfg.Optimism != nil {
+		// If OP-Stack then bedrock activation number determines when TTD (eth Merge) has been reached.
+		// Note: some tests/utils will set parentNumber == max_uint64 as "parent" of the genesis block, this is fine.
+		return cfg.IsBedrock(new(big.Int).SetUint64(parentNumber + 1)), nil
+	}
 	if chain.Config().TerminalTotalDifficulty == nil {
 		return false, nil
 	}

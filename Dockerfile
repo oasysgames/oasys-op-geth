@@ -2,12 +2,7 @@
 #       It will not be able to be referenced by RUN.
 
 # Build Geth in a stock Go builder container
-FROM golang:1.21.3-bullseye as builder
-
-# Support setting various labels on the final image
-ARG COMMIT=""
-ARG VERSION=""
-ARG BUILDNUM=""
+FROM golang:1.23.6-bullseye AS builder
 
 # automatically set by buildkit, can be changed with --platform flag
 ARG TARGETOS
@@ -39,7 +34,7 @@ COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
 EXPOSE 8545 8546 30303 30303/udp
 ENTRYPOINT ["geth"]
 
-# Add some metadata labels to help programatic image consumption
+# Add some metadata labels to help programmatic image consumption
 ARG COMMIT=""
 ARG VERSION=""
 ARG BUILDNUM=""

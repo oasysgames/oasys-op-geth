@@ -24,8 +24,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/stateless"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
@@ -56,7 +58,7 @@ func (api *DebugAPI) DumpBlock(blockNr rpc.BlockNumber) (state.Dump, error) {
 		// If we're dumping the pending state, we need to request
 		// both the pending block as well as the pending state from
 		// the miner and operate on those
-		_, stateDb := api.eth.miner.Pending()
+		_, _, stateDb := api.eth.miner.Pending()
 		if stateDb == nil {
 			return state.Dump{}, errors.New("pending state is not available")
 		}
@@ -136,7 +138,7 @@ func (api *DebugAPI) GetBadBlocks(ctx context.Context) ([]*BadBlockArgs, error) 
 const AccountRangeMaxResults = 256
 
 // AccountRange enumerates all accounts in the given block and start point in paging request
-func (api *DebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, start hexutil.Bytes, maxResults int, nocode, nostorage, incompletes bool) (state.IteratorDump, error) {
+func (api *DebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, start hexutil.Bytes, maxResults int, nocode, nostorage, incompletes bool) (state.Dump, error) {
 	var stateDb *state.StateDB
 	var err error
 
@@ -145,9 +147,9 @@ func (api *DebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, start hex
 			// If we're dumping the pending state, we need to request
 			// both the pending block as well as the pending state from
 			// the miner and operate on those
-			_, stateDb = api.eth.miner.Pending()
+			_, _, stateDb = api.eth.miner.Pending()
 			if stateDb == nil {
-				return state.IteratorDump{}, errors.New("pending state is not available")
+				return state.Dump{}, errors.New("pending state is not available")
 			}
 		} else {
 			var header *types.Header
@@ -161,29 +163,29 @@ func (api *DebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, start hex
 			default:
 				block := api.eth.blockchain.GetBlockByNumber(uint64(number))
 				if block == nil {
-					return state.IteratorDump{}, fmt.Errorf("block #%d not found", number)
+					return state.Dump{}, fmt.Errorf("block #%d not found", number)
 				}
 				header = block.Header()
 			}
 			if header == nil {
-				return state.IteratorDump{}, fmt.Errorf("block #%d not found", number)
+				return state.Dump{}, fmt.Errorf("block #%d not found", number)
 			}
 			stateDb, err = api.eth.BlockChain().StateAt(header.Root)
 			if err != nil {
-				return state.IteratorDump{}, err
+				return state.Dump{}, err
 			}
 		}
 	} else if hash, ok := blockNrOrHash.Hash(); ok {
 		block := api.eth.blockchain.GetBlockByHash(hash)
 		if block == nil {
-			return state.IteratorDump{}, fmt.Errorf("block %s not found", hash.Hex())
+			return state.Dump{}, fmt.Errorf("block %s not found", hash.Hex())
 		}
 		stateDb, err = api.eth.BlockChain().StateAt(block.Root())
 		if err != nil {
-			return state.IteratorDump{}, err
+			return state.Dump{}, err
 		}
 	} else {
-		return state.IteratorDump{}, errors.New("either block number or block hash must be specified")
+		return state.Dump{}, errors.New("either block number or block hash must be specified")
 	}
 
 	opts := &state.DumpConfig{
@@ -196,7 +198,7 @@ func (api *DebugAPI) AccountRange(blockNrOrHash rpc.BlockNumberOrHash, start hex
 	if maxResults > AccountRangeMaxResults || maxResults <= 0 {
 		opts.Max = AccountRangeMaxResults
 	}
-	return stateDb.IteratorDump(opts), nil
+	return stateDb.RawDump(opts), nil
 }
 
 // StorageRangeResult is the result of a debug_storageRangeAt API call.
@@ -445,4 +447,47 @@ func (api *DebugAPI) GetTrieFlushInterval() (string, error) {
 		return "", errors.New("trie flush interval is undefined for path-based scheme")
 	}
 	return api.eth.blockchain.GetTrieFlushInterval().String(), nil
+}
+
+func (api *DebugAPI) ExecutionWitness(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*stateless.ExecutionWitness, error) {
+	block, err := api.eth.APIBackend.BlockByNumberOrHash(ctx, blockNrOrHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve block: %w", err)
+	}
+	if block == nil {
+		return nil, fmt.Errorf("block not found: %s", blockNrOrHash.String())
+	}
+
+	witness, err := generateWitness(api.eth.blockchain, block)
+	return witness.ToExecutionWitness(), err
+}
+
+func generateWitness(blockchain *core.BlockChain, block *types.Block) (*stateless.Witness, error) {
+	witness, err := stateless.NewWitness(block.Header(), blockchain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create witness: %w", err)
+	}
+
+	parentHeader := witness.Headers[0]
+	statedb, err := blockchain.StateAt(parentHeader.Root)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve parent state: %w", err)
+	}
+
+	statedb.StartPrefetcher("debug_execution_witness", witness)
+	defer statedb.StopPrefetcher()
+
+	res, err := blockchain.Processor().Process(block, statedb, *blockchain.GetVMConfig())
+	if err != nil {
+		return nil, fmt.Errorf("failed to process block %d: %w", block.Number(), err)
+	}
+
+	// OP-Stack warning: below has the side-effect of including the withdrawals storage-root
+	// into the execution witness through the storage lookup by ValidateState, triggering the pre-fetcher.
+	// The Process function only runs through Finalize steps, not through FinalizeAndAssemble, missing merkleization.
+	if err := blockchain.Validator().ValidateState(block, statedb, res, false); err != nil {
+		return nil, fmt.Errorf("failed to validate block %d: %w", block.Number(), err)
+	}
+
+	return witness, nil
 }
