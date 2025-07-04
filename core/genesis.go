@@ -482,22 +482,16 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, triedb *triedb.Database, g
 	if genesis != nil {
 		genesisTimestamp = &genesis.Timestamp
 	}
-<<<<<<< HEAD
-	err := storedcfg.CheckCompatible(newcfg, head.Number.Uint64(), head.Time, genesisTimestamp)
-	if err != nil {
-		compatErr, ok := err.(*params.ConfigCompatError)
-		if ok && ((head.Number.Uint64() != 0 && compatErr.RewindToBlock != 0) || (head.Time != 0 && compatErr.RewindToTime != 0)) {
-			return newcfg, stored, compatErr
-		}
-		return newcfg, stored, err
-=======
 	// OP-Stack diff: provide genesis timestamp (may be nil), to check bedrock-migration compat with config.
 	// TODO(rjl493456442) better to define the comparator of chain config
 	// and short circuit if the chain config is not changed.
-	compatErr := storedCfg.CheckCompatible(newCfg, head.Number.Uint64(), head.Time, genesisTimestamp)
-	if compatErr != nil && ((head.Number.Uint64() != 0 && compatErr.RewindToBlock != 0) || (head.Time != 0 && compatErr.RewindToTime != 0)) {
-		return newCfg, ghash, compatErr, nil
->>>>>>> v1.101500.0
+	err = storedCfg.CheckCompatible(newCfg, head.Number.Uint64(), head.Time, genesisTimestamp)
+	if err != nil {
+		compatErr, ok := err.(*params.ConfigCompatError)
+		if ok && ((head.Number.Uint64() != 0 && compatErr.RewindToBlock != 0) || (head.Time != 0 && compatErr.RewindToTime != 0)) {
+			return newCfg, ghash, compatErr, nil
+		}
+		return newCfg, ghash, nil, err
 	}
 
 	// Don't overwrite if the old is identical to the new. It's useful
