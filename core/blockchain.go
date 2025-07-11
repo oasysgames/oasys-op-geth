@@ -942,14 +942,33 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, time uint64, root common.Ha
 	bc.blockCache.Purge()
 	bc.txLookupCache.Purge()
 
+	// Get the block to set the safe and finalized block to
+	headBlock := bc.GetBlockByNumber(head)
+	if headBlock == nil {
+		log.Warn("Block not found", "number", head)
+		return 0, fmt.Errorf("halt set head due to block not found: %d", head)
+	}
+
 	// Clear safe block, finalized block if needed
 	if safe := bc.CurrentSafeBlock(); safe != nil && head < safe.Number.Uint64() {
-		log.Warn("SetHead invalidated safe block")
-		bc.SetSafe(nil)
+		// log.Warn("SetHead invalidated safe block")
+		// bc.SetSafe(nil)
+
+		// Warning: This is dangerous, as it forces the safe block to be head block.
+		// This prevents op-node walk back to genesis block.
+		// If the safe block is null, the op-node will walk back to genesis block at the start.
+		// bc.SetSafe(nil) <- original code
+		bc.SetSafe(headBlock.Header())
 	}
 	if finalized := bc.CurrentFinalBlock(); finalized != nil && head < finalized.Number.Uint64() {
-		log.Error("SetHead invalidated finalized block")
-		bc.SetFinalized(nil)
+		// log.Error("SetHead invalidated finalized block")
+		// bc.SetFinalized(nil)
+
+		// Warning: This is dangerous, as it forces the finalized block to be head block.
+		// This prevents op-node walk back to genesis block.
+		// If the finalized block is null, the op-node will walk back to genesis block at the start.
+		// bc.SetFinalized(nil) <- original code
+		bc.SetFinalized(headBlock.Header())
 	}
 	return rootNumber, bc.loadLastState()
 }
