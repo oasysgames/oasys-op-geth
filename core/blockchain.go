@@ -577,8 +577,7 @@ func (bc *BlockChain) loadLastState() error {
 		log.Info("Loaded most recent local snap block", "number", currentSnapBlock.Number, "hash", currentSnapBlock.Hash(), "age", common.PrettyAge(time.Unix(int64(currentSnapBlock.Time), 0)))
 	}
 	if currentSafeBlock != nil {
-		safeTd := bc.GetTd(currentSafeBlock.Hash(), currentSafeBlock.Number.Uint64())
-		log.Info("Loaded most recent local safe block", "number", currentSafeBlock.Number, "hash", currentSafeBlock.Hash(), "td", safeTd, "age", common.PrettyAge(time.Unix(int64(currentSafeBlock.Time), 0)))
+		log.Info("Loaded most recent local safe block", "number", currentSafeBlock.Number, "hash", currentSafeBlock.Hash(), "age", common.PrettyAge(time.Unix(int64(currentSafeBlock.Time), 0)))
 	}
 	if currentFinalBlock != nil {
 		log.Info("Loaded most recent local finalized block", "number", currentFinalBlock.Number, "hash", currentFinalBlock.Hash(), "age", common.PrettyAge(time.Unix(int64(currentFinalBlock.Time), 0)))
