@@ -2,11 +2,7 @@
 #       It will not be able to be referenced by RUN.
 
 # Build Geth in a stock Go builder container
-<<<<<<< HEAD
-FROM golang:1.23.6-bullseye AS builder
-=======
-FROM golang:1.24-alpine AS builder
->>>>>>> v1.101503.4
+FROM golang:1.24.5-bookworm AS builder
 
 # automatically set by buildkit, can be changed with --platform flag
 ARG TARGETOS
@@ -26,7 +22,7 @@ RUN cd /go-ethereum && \
       go run build/ci.go install -static -arch $TARGETARCH ./cmd/geth
 
 # Pull Geth into a second stage deploy debian container
-FROM debian:11.9-slim
+FROM debian:bookworm-20250721-slim
 
 RUN apt update && \
     apt install -y ca-certificates && \

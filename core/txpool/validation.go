@@ -249,16 +249,11 @@ type ValidationOptionsWithState struct {
 	// transaction's cost with the given nonce to check for overdrafts.
 	ExistingCost func(addr common.Address, nonce uint64) *big.Int
 
-<<<<<<< HEAD
-	// L1CostFn is an optional extension, to validate L1 rollup costs of a tx
-	L1CostFn L1CostFunc
+	// RollupCostFn is an optional extension, to validate total rollup costs of a tx
+	RollupCostFn RollupCostFunc
 
 	// Flag to indicate that the L2 fee is zero
 	IsFeeZero bool
-=======
-	// RollupCostFn is an optional extension, to validate total rollup costs of a tx
-	RollupCostFn RollupCostFunc
->>>>>>> v1.101503.4
 }
 
 // ValidateTransactionWithState is a helper method to check whether a transaction

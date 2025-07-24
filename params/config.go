@@ -1015,7 +1015,6 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 		}
 	}
 
-<<<<<<< HEAD
 	for i, cur := range c.ZeroFeeTimes {
 		if i > 0 {
 			if prev := c.ZeroFeeTimes[i-1]; cur <= prev {
@@ -1029,7 +1028,7 @@ func (c *ChainConfig) CheckConfigForkOrder() error {
 			}
 		}
 	}
-=======
+
 	// OP-Stack chains don't support blobs, and must have a nil BlobScheduleConfig.
 	if c.IsOptimism() {
 		if c.BlobScheduleConfig == nil {
@@ -1078,7 +1077,6 @@ func (bc *BlobConfig) validate() error {
 	if bc.UpdateFraction == 0 {
 		return errors.New("update fraction must be defined and non-zero")
 	}
->>>>>>> v1.101503.4
 	return nil
 }
 

@@ -668,12 +668,8 @@ func (pool *LegacyPool) validateTx(tx *types.Transaction) error {
 			}
 			return nil
 		},
-<<<<<<< HEAD
-		L1CostFn:  pool.l1CostFn,
-		IsFeeZero: pool.chainconfig.IsFeeZero(pool.currentHead.Load().Time),
-=======
 		RollupCostFn: pool.rollupCostFn,
->>>>>>> v1.101503.4
+		IsFeeZero:    pool.chainconfig.IsFeeZero(pool.currentHead.Load().Time),
 	}
 	if err := txpool.ValidateTransactionWithState(tx, pool.signer, opts); err != nil {
 		return err
