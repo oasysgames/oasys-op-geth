@@ -2,7 +2,11 @@
 #       It will not be able to be referenced by RUN.
 
 # Build Geth in a stock Go builder container
+<<<<<<< HEAD
 FROM golang:1.23.6-bullseye AS builder
+=======
+FROM golang:1.24-alpine AS builder
+>>>>>>> v1.101503.4
 
 # automatically set by buildkit, can be changed with --platform flag
 ARG TARGETOS

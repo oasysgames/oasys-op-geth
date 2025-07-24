@@ -204,9 +204,10 @@ func TestBlockRlpEncodeDecode(t *testing.T) {
 	zeroTime := uint64(0)
 
 	// create a config where Isthmus upgrade is active
-	config := *params.OptimismTestConfig
+	config := *params.OptimismTestCliqueConfig
 	config.ShanghaiTime = &zeroTime
 	config.IsthmusTime = &zeroTime
+	config.CancunTime = &zeroTime
 	require.True(t, config.IsOptimismIsthmus(zeroTime))
 
 	block := getBlock(&config, 10, 2, 50)

@@ -273,14 +273,19 @@ var (
 		Usage:    "Manually specify the Optimism Granite fork timestamp, overriding the bundled setting",
 		Category: flags.EthCategory,
 	}
+	OverrideOptimismHolocene = &cli.Uint64Flag{
+		Name:     "override.holocene",
+		Usage:    "Manually specify the Optimism Holocene fork timestamp, overriding the bundled setting",
+		Category: flags.EthCategory,
+	}
 	OverrideOptimismIsthmus = &cli.Uint64Flag{
 		Name:     "override.isthmus",
 		Usage:    "Manually specify the Optimism Isthmus fork timestamp, overriding the bundled setting",
 		Category: flags.EthCategory,
 	}
-	OverrideOptimismHolocene = &cli.Uint64Flag{
-		Name:     "override.holocene",
-		Usage:    "Manually specify the Optimism Holocene fork timestamp, overriding the bundled setting",
+	OverrideOptimismJovian = &cli.Uint64Flag{
+		Name:     "override.jovian",
+		Usage:    "Manually specify the Optimism Jovian fork timestamp, overriding the bundled setting",
 		Category: flags.EthCategory,
 	}
 	OverrideOptimismInterop = &cli.Uint64Flag{
@@ -307,7 +312,7 @@ var (
 	}
 	StateHistoryFlag = &cli.Uint64Flag{
 		Name:     "history.state",
-		Usage:    "Number of recent blocks to retain state history for (default = 90,000 blocks, 0 = entire chain)",
+		Usage:    "Number of recent blocks to retain state history for, only relevant in state.scheme=path (default = 90,000 blocks, 0 = entire chain)",
 		Value:    ethconfig.Defaults.StateHistory,
 		Category: flags.StateCategory,
 	}
@@ -388,7 +393,7 @@ var (
 	}
 	TxPoolJournalRemotesFlag = &cli.BoolFlag{
 		Name:     "txpool.journalremotes",
-		Usage:    "Includes remote transactions in the journal",
+		Usage:    "Includes remote transactions in the journal. Only effective if nolocals is set too.",
 		Category: flags.TxPoolCategory,
 	}
 	TxPoolRejournalFlag = &cli.DurationFlag{
