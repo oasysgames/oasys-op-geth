@@ -502,7 +502,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, triedb *triedb.Database, g
 	// OP-Stack diff: provide genesis timestamp (may be nil), to check bedrock-migration compat with config.
 	// TODO(rjl493456442) better to define the comparator of chain config
 	// and short circuit if the chain config is not changed.
-	err = storedCfg.CheckCompatible(newCfg, head.Number.Uint64(), head.Time, genesisTimestamp)
+	err := storedCfg.CheckCompatible(newCfg, head.Number.Uint64(), head.Time, genesisTimestamp)
 	if err != nil {
 		compatErr, ok := err.(*params.ConfigCompatError)
 		if ok && ((head.Number.Uint64() != 0 && compatErr.RewindToBlock != 0) || (head.Time != 0 && compatErr.RewindToTime != 0)) {
