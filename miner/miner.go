@@ -69,8 +69,10 @@ type Config struct {
 
 // DefaultConfig contains default settings for miner.
 var DefaultConfig = Config{
-	GasCeil:  30_000_000,
-	GasPrice: big.NewInt(params.Wei),
+	GasCeil: 30_000_000,
+	// The original gas price was set to `1`. As a result, gasless txs (gas price = 0) were filtered out by the miner and not included in blocks.
+	// To avoid this issue, we set it to `0` so that all txs can be considered for inclusion in the block.
+	GasPrice: big.NewInt(0),
 
 	// The default recommit time is chosen as two seconds since
 	// consensus-layer usually will wait a half slot of time(6s)
