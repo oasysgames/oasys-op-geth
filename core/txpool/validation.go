@@ -101,9 +101,9 @@ func ValidateTransaction(tx *types.Transaction, head *types.Header, signer types
 	}
 	// Ensure only transactions that have been enabled are accepted
 	rules := opts.Config.Rules(head.Number, head.Difficulty.Sign() == 0, head.Time)
-	if !rules.IsBerlin && tx.Type() != types.LegacyTxType {
-		return fmt.Errorf("%w: type %d rejected, pool not yet in Berlin", core.ErrTxTypeNotSupported, tx.Type())
-	}
+	// if !rules.IsBerlin && tx.Type() != types.LegacyTxType {
+	// 	return fmt.Errorf("%w: type %d rejected, pool not yet in Berlin", core.ErrTxTypeNotSupported, tx.Type())
+	// }
 	if !rules.IsLondon && tx.Type() == types.DynamicFeeTxType {
 		return fmt.Errorf("%w: type %d rejected, pool not yet in London", core.ErrTxTypeNotSupported, tx.Type())
 	}
