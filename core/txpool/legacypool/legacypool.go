@@ -628,6 +628,8 @@ func (pool *LegacyPool) Pending(filter txpool.PendingFilter) map[common.Address]
 func (pool *LegacyPool) validateTxBasics(tx *types.Transaction) error {
 	opts := &txpool.ValidationOptions{
 		Config: pool.chainconfig,
+
+		IsMCHVerse: pool.chainconfig.IsMCHVerse,
 		Accept: 0 |
 			1<<types.LegacyTxType |
 			1<<types.AccessListTxType |

@@ -384,6 +384,8 @@ var NetworkNames = map[string]string{
 type ChainConfig struct {
 	ChainID *big.Int `json:"chainId"` // chainId identifies the current chain and is used for replay protection
 
+	IsMCHVerse bool `json:"isMCHVerse,omitempty"` // Whether the chain is MCHVerse
+
 	HomesteadBlock *big.Int `json:"homesteadBlock,omitempty"` // Homestead switch block (nil = no fork, 0 = already homestead)
 
 	DAOForkBlock   *big.Int `json:"daoForkBlock,omitempty"`   // TheDAO hard-fork switch block (nil = no fork)
@@ -598,6 +600,12 @@ func (c *ChainConfig) Description() string {
 		}
 	}
 	banner += "\n"
+
+	if c.IsMCHVerse {
+		banner += "MCH Verse:\n"
+		banner += " - IsMCHVerse: true\n"
+		banner += "\n"
+	}
 
 	// Add a special section for the merge as it's non-obvious
 	banner += "Merge configured:\n"

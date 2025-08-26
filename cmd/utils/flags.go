@@ -658,6 +658,17 @@ var (
 		Usage:    "Path to the contract update configuration file",
 		Category: flags.OasysCategory,
 	}
+	OverrideIsMCHVerseFlag = &cli.BoolFlag{
+		Name: "mchverse",
+		Usage: `Whether the chain is MCHVerse.
+MCH Verse differs from the standardized Oasys Verse, as it was originally launched before the standardized Verse. As a result, special care is required. We will summarize all conditional branches that handle this flag in the future.
+
+The current changes are as follows:
+1. Bypass Berlin transaction validation, since MCH Verse has not applied the Berlin hardfork.
+`,
+		Value:    false,
+		Category: flags.OasysCategory,
+	}
 
 	// RPC settings
 	IPCDisabledFlag = &cli.BoolFlag{

@@ -62,6 +62,8 @@ func EffectiveGasLimit(chainConfig *params.ChainConfig, gasLimit uint64, effecti
 type ValidationOptions struct {
 	Config *params.ChainConfig // Chain configuration to selectively validate based on current fork rules
 
+	IsMCHVerse bool // Whether the chain is MCHVerse
+
 	Accept  uint8    // Bitmap of transaction types that should be accepted for the calling pool
 	MaxSize uint64   // Maximum size of a transaction that the caller can meaningfully handle
 	MinTip  *big.Int // Minimum gas tip needed to allow a transaction into the caller pool
@@ -101,7 +103,7 @@ func ValidateTransaction(tx *types.Transaction, head *types.Header, signer types
 	}
 	// Ensure only transactions that have been enabled are accepted
 	rules := opts.Config.Rules(head.Number, head.Difficulty.Sign() == 0, head.Time)
-	if !rules.IsBerlin && tx.Type() != types.LegacyTxType {
+	if !rules.IsBerlin && tx.Type() != types.LegacyTxType && !opts.IsMCHVerse { // Bypass Berlin check for MCHVerse
 		return fmt.Errorf("%w: type %d rejected, pool not yet in Berlin", core.ErrTxTypeNotSupported, tx.Type())
 	}
 	if !rules.IsLondon && tx.Type() == types.DynamicFeeTxType {
