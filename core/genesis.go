@@ -291,6 +291,9 @@ type ChainOverrides struct {
 	OverrideCancun *uint64
 	OverrideVerkle *uint64
 
+	// Oasys additions
+	OverrideIsMCHVerse bool
+
 	// OP-Stack additions
 	OverrideOptimismCanyon   *uint64
 	OverrideOptimismEcotone  *uint64
@@ -340,6 +343,11 @@ func (o *ChainOverrides) apply(cfg *params.ChainConfig) error {
 	}
 	if o.OverrideVerkle != nil {
 		cfg.VerkleTime = o.OverrideVerkle
+	}
+
+	// Oasys additions
+	if o.OverrideIsMCHVerse {
+		cfg.IsMCHVerse = true
 	}
 
 	// OP-Stack overrides

@@ -188,6 +188,10 @@ func makeFullNode(ctx *cli.Context) *node.Node {
 		cfg.Eth.OverrideCancun = &v
 	}
 
+	if ctx.IsSet(utils.OverrideIsMCHVerseFlag.Name) {
+		cfg.Eth.OverrideIsMCHVerse = ctx.Bool(utils.OverrideIsMCHVerseFlag.Name)
+	}
+
 	if ctx.IsSet(utils.OverrideOptimismCanyon.Name) {
 		v := ctx.Uint64(utils.OverrideOptimismCanyon.Name)
 		cfg.Eth.OverrideOptimismCanyon = &v
