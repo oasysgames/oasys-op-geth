@@ -924,6 +924,14 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, time uint64, root common.Ha
 		}
 		// Todo(rjl493456442) txlookup, bloombits, etc
 	}
+
+	// Get the block to set the safe block to
+	headBlock := bc.GetBlockByNumber(head)
+	if headBlock == nil {
+		log.Warn("Block not found", "number", head)
+		return 0, fmt.Errorf("halt set head due to block not found: %d", head)
+	}
+
 	// If SetHead was only called as a chain reparation method, try to skip
 	// touching the header chain altogether, unless the freezer is broken
 	if repair {
@@ -951,7 +959,11 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, time uint64, root common.Ha
 	// Clear safe block, finalized block if needed
 	if safe := bc.CurrentSafeBlock(); safe != nil && head < safe.Number.Uint64() {
 		log.Warn("SetHead invalidated safe block")
-		bc.SetSafe(nil)
+		// Warning: This is dangerous, as it forces the safe block to be head block.
+		// This prevents op-node walk back to genesis block.
+		// If the safe block is null, the op-node will walk back to genesis block at the start.
+		// bc.SetSafe(nil) <- original code
+		bc.SetSafe(headBlock.Header())
 	}
 	if finalized := bc.CurrentFinalBlock(); finalized != nil && head < finalized.Number.Uint64() {
 		log.Error("SetHead invalidated finalized block")
