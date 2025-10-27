@@ -24,7 +24,9 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -395,4 +397,47 @@ func (f *Freezer) repair() error {
 	f.frozen.Store(head)
 	f.tail.Store(tail)
 	return nil
+}
+
+// delete leveldb data that save to ancientdb, split from func freeze
+func gcKvStore(db ethdb.KeyValueStore, ancients []common.Hash, first uint64, frozen uint64, start time.Time) {
+	// Wipe out all data from the active database
+	batch := db.NewBatch()
+	for i := 0; i < len(ancients); i++ {
+		// Always keep the genesis block in active database
+		if blockNumber := first + uint64(i); blockNumber != 0 {
+			DeleteBlockWithoutNumber(batch, ancients[i], blockNumber)
+			DeleteCanonicalHash(batch, blockNumber)
+		}
+	}
+	if err := batch.Write(); err != nil {
+		log.Crit("Failed to delete frozen canonical blocks", "err", err)
+	}
+	batch.Reset()
+
+	// Wipe out side chains also and track dangling side chians
+	var dangling []common.Hash
+	for number := first; number < frozen; number++ {
+		// Always keep the genesis block in active database
+		if number != 0 {
+			dangling = ReadAllHashes(db, number)
+			for _, hash := range dangling {
+				log.Trace("Deleting side chain", "number", number, "hash", hash)
+				DeleteBlock(batch, hash, number)
+			}
+		}
+	}
+	if err := batch.Write(); err != nil {
+		log.Crit("Failed to delete frozen side blocks", "err", err)
+	}
+	batch.Reset()
+
+	// Log something friendly for the user
+	context := []interface{}{
+		"blocks", frozen - first, "elapsed", common.PrettyDuration(time.Since(start)), "number", frozen - 1,
+	}
+	if n := len(ancients); n > 0 {
+		context = append(context, []interface{}{"hash", ancients[n-1]}...)
+	}
+	log.Info("Deep froze chain segment", context...)
 }

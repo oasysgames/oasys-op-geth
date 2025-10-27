@@ -28,6 +28,9 @@ const (
 	// considered probably final and its rotated bits are calculated.
 	BloomConfirms = 256
 
+	// StableStateThreshold is the reserve number of block state save to disk before delete ancientdb
+	StableStateThreshold uint64 = 128
+
 	// FullImmutabilityThreshold is the number of blocks after which a chain segment is
 	// considered immutable (i.e. soft finality). It is used by the downloader as a
 	// hard limit against deep ancestors, by the blockchain against deep reorgs, by

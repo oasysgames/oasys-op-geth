@@ -669,6 +669,12 @@ The current changes are as follows:
 		Value:    false,
 		Category: flags.OasysCategory,
 	}
+	PruneAncientDataFlag = &cli.BoolFlag{
+		Name:     "pruneancient",
+		Usage:    "Prune ancient data, is an optional config and disabled by default. Only keep the latest 9w blocks' data,the older blocks' data will be permanently pruned. Notice:the geth/chaindata/ancient dir will be removed, if restart without the flag, the ancient data will start with the previous point that the oldest unpruned block number. Recommends to the user who don't care about the ancient data.",
+		Value:    false,
+		Category: flags.BlockHistoryCategory,
+	}
 
 	// RPC settings
 	IPCDisabledFlag = &cli.BoolFlag{
@@ -1810,7 +1816,9 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	if ctx.IsSet(AncientFlag.Name) {
 		cfg.DatabaseFreezer = ctx.String(AncientFlag.Name)
 	}
-
+	if ctx.IsSet(PruneAncientDataFlag.Name) {
+		cfg.PruneAncientData = ctx.Bool(PruneAncientDataFlag.Name)
+	}
 	if gcmode := ctx.String(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {
 		Fatalf("--%s must be either 'full' or 'archive'", GCModeFlag.Name)
 	}
@@ -2270,7 +2278,7 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) ethdb.
 		}
 		chainDb = remotedb.New(client)
 	default:
-		chainDb, err = stack.OpenDatabaseWithFreezer("chaindata", cache, handles, ctx.String(AncientFlag.Name), "", readonly)
+		chainDb, err = stack.OpenDatabaseWithFreezer("chaindata", cache, handles, ctx.String(AncientFlag.Name), "", readonly, ctx.Bool(PruneAncientDataFlag.Name))
 	}
 	if err != nil {
 		Fatalf("Could not open database: %v", err)

@@ -39,6 +39,8 @@ const (
 	OasysCategory      = "OASYS"
 	TestingCategory    = "TESTING"
 	DeprecatedCategory = "ALIASED (deprecated)"
+
+	BlockHistoryCategory = "BLOCK HISTORY MANAGEMENT"
 )
 
 func init() {

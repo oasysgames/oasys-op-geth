@@ -35,7 +35,7 @@ import (
 // freezerdb is a database wrapper that enables ancient chain segment freezing.
 type freezerdb struct {
 	ethdb.KeyValueStore
-	*chainFreezer
+	ethdb.AncientStore
 
 	readOnly    bool
 	ancientRoot string
@@ -50,7 +50,7 @@ func (frdb *freezerdb) AncientDatadir() (string, error) {
 // the slow ancient tables.
 func (frdb *freezerdb) Close() error {
 	var errs []error
-	if err := frdb.chainFreezer.Close(); err != nil {
+	if err := frdb.AncientStore.Close(); err != nil {
 		errs = append(errs, err)
 	}
 	if err := frdb.KeyValueStore.Close(); err != nil {
@@ -71,7 +71,7 @@ func (frdb *freezerdb) Freeze() error {
 	}
 	// Trigger a freeze cycle and block until it's done
 	trigger := make(chan struct{}, 1)
-	frdb.chainFreezer.trigger <- trigger
+	frdb.AncientStore.(*chainFreezer).trigger <- trigger
 	<-trigger
 	return nil
 }
@@ -185,7 +185,7 @@ func resolveChainFreezerDir(ancient string) string {
 // value data store with a freezer moving immutable chain segments into cold
 // storage. The passed ancient indicates the path of root ancient directory
 // where the chain freezer can be opened.
-func NewDatabaseWithFreezer(db ethdb.KeyValueStore, ancient string, namespace string, readonly bool) (ethdb.Database, error) {
+func NewDatabaseWithFreezer(db ethdb.KeyValueStore, ancient string, namespace string, readonly, pruneAncientData bool) (ethdb.Database, error) {
 	// Create the idle freezer instance. If the given ancient directory is empty,
 	// in-memory chain freezer is used (e.g. dev mode); otherwise the regular
 	// file-based freezer is created.
@@ -193,6 +193,29 @@ func NewDatabaseWithFreezer(db ethdb.KeyValueStore, ancient string, namespace st
 	if chainFreezerDir != "" {
 		chainFreezerDir = resolveChainFreezerDir(chainFreezerDir)
 	}
+
+	if pruneAncientData && !readonly {
+		offset := ReadOffSetOfCurrentAncientFreezer(db)
+		frdb, err := newPrunedFreezer(chainFreezerDir, db, offset)
+		if err != nil {
+			return nil, err
+		}
+
+		go frdb.freeze()
+		if !readonly {
+			WriteAncientType(db, PruneFreezerType)
+		}
+		return &freezerdb{
+			ancientRoot:   ancient,
+			KeyValueStore: db,
+			AncientStore:  frdb,
+		}, nil
+	}
+
+	if pruneAncientData {
+		log.Error("pruneancient not take effect, readonly be set")
+	}
+
 	frdb, err := newChainFreezer(chainFreezerDir, namespace, readonly)
 	if err != nil {
 		printChainMetadata(db)
@@ -287,7 +310,7 @@ func NewDatabaseWithFreezer(db ethdb.KeyValueStore, ancient string, namespace st
 	return &freezerdb{
 		ancientRoot:   ancient,
 		KeyValueStore: db,
-		chainFreezer:  frdb,
+		AncientStore:  frdb,
 	}, nil
 }
 

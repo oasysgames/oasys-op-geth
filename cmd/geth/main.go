@@ -169,6 +169,7 @@ var (
 		utils.RollupSuperchainUpgradesFlag,
 		utils.ContractUpdateFlag,
 		utils.OverrideIsMCHVerseFlag,
+		utils.PruneAncientDataFlag,
 		configFileFlag,
 		utils.LogDebugFlag,
 		utils.LogBacktraceAtFlag,
