@@ -1817,6 +1817,10 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 		cfg.DatabaseFreezer = ctx.String(AncientFlag.Name)
 	}
 	if ctx.IsSet(PruneAncientDataFlag.Name) {
+		if cfg.SyncMode != ethconfig.FullSync {
+			log.Warn("pruneancient parameter can only be used with syncmode=full, force to full sync")
+			cfg.SyncMode = ethconfig.FullSync
+		}
 		cfg.PruneAncientData = ctx.Bool(PruneAncientDataFlag.Name)
 	}
 	if gcmode := ctx.String(GCModeFlag.Name); gcmode != "full" && gcmode != "archive" {

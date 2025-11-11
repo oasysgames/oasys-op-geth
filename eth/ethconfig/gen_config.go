@@ -32,6 +32,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		DatabaseHandles                           int                    `toml:"-"`
 		DatabaseCache                             int
 		DatabaseFreezer                           string
+		PruneAncientData                          bool
 		TrieCleanCache                            int
 		TrieDirtyCache                            int
 		TrieTimeout                               time.Duration
@@ -87,6 +88,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.DatabaseHandles = c.DatabaseHandles
 	enc.DatabaseCache = c.DatabaseCache
 	enc.DatabaseFreezer = c.DatabaseFreezer
+	enc.PruneAncientData = c.PruneAncientData
 	enc.TrieCleanCache = c.TrieCleanCache
 	enc.TrieDirtyCache = c.TrieDirtyCache
 	enc.TrieTimeout = c.TrieTimeout
