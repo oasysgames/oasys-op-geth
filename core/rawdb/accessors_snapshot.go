@@ -196,6 +196,18 @@ func DeleteSnapshotRecoveryNumber(db ethdb.KeyValueWriter) {
 	}
 }
 
+// ClearSnapshotRebuildMetadata removes recovery and disabled markers before snapshot rebuild.
+// Unlike DeleteSnapshotRecoveryNumber / DeleteSnapshotDisabled, failures are logged as warnings
+// so the node can continue when LevelDB returns errors (e.g. table corruption) on these deletes.
+func ClearSnapshotRebuildMetadata(db ethdb.KeyValueWriter) {
+	if err := db.Delete(snapshotRecoveryKey); err != nil {
+		log.Warn("Failed to remove snapshot recovery number (continuing rebuild)", "err", err)
+	}
+	if err := db.Delete(snapshotDisabledKey); err != nil {
+		log.Warn("Failed to remove snapshot disabled flag (continuing rebuild)", "err", err)
+	}
+}
+
 // ReadSnapshotSyncStatus retrieves the serialized sync status saved at shutdown.
 func ReadSnapshotSyncStatus(db ethdb.KeyValueReader) []byte {
 	data, _ := db.Get(snapshotSyncStatusKey)

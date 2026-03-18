@@ -695,8 +695,8 @@ func (t *Tree) Rebuild(root common.Hash) {
 
 	// Firstly delete any recovery flag in the database. Because now we are
 	// building a brand new snapshot. Also reenable the snapshot feature.
-	rawdb.DeleteSnapshotRecoveryNumber(t.diskdb)
-	rawdb.DeleteSnapshotDisabled(t.diskdb)
+	// Use warn-only deletes so LevelDB issues on these keys do not crash startup.
+	rawdb.ClearSnapshotRebuildMetadata(t.diskdb)
 
 	// Iterate over and mark all layers stale
 	for _, layer := range t.layers {
